@@ -1,16 +1,16 @@
 package testauto.domain;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.junit.platform.engine.UniqueId;
 
 @Getter
 @Setter
 @RequiredArgsConstructor
 @EqualsAndHashCode( of = {"uniqueId"})
-public class TestObject {
-    private String uniqueId;
+@ToString
+public class TestProgram {
+    private final UniqueId uniqueId;
+    private UniqueId parentUniqueId;
     private String displayName;
     private String className;
 }

@@ -1,7 +1,6 @@
 package testauto.service;
 
-import org.junit.platform.engine.TestSource;
-import org.junit.platform.engine.UniqueId;
+import lombok.RequiredArgsConstructor;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
@@ -9,17 +8,22 @@ import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import testauto.domain.TestProgram;
+import testauto.repository.TestProgramMemoryRepository;
+import testauto.repository.TestProgramRepository;
 
-
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 @Service
+@RequiredArgsConstructor
 public class TestDiscoveryServiceImpl implements TestDiscoveryService{
+    @Autowired
+    private final TestProgramRepository repository;
+
     public static void main(String[] args) {
-        (new TestDiscoveryServiceImpl()).discoverAllTests();
+        (new TestDiscoveryServiceImpl(new TestProgramMemoryRepository())).discoverAllTests();
     }
 
     @Override
@@ -38,22 +42,22 @@ public class TestDiscoveryServiceImpl implements TestDiscoveryService{
         System.out.println("identifiers = " + identifiers);
 
         for (TestIdentifier id : identifiers) {
-            UniqueId rootUniqueId = id.getUniqueIdObject();
-            System.out.println("rootUniqueId = " + rootUniqueId);
             Set<TestIdentifier> children = testPlan.getChildren(id);
             children.forEach(child -> {
+                TestProgram testProgram = new TestProgram(child.getUniqueIdObject());
+                testProgram.setParentUniqueId(child.getParentIdObject().orElse(null));
+                testProgram.setDisplayName(child.getDisplayName());
+                ClassSource testSource = (ClassSource) child.getSource().orElse(null);
+                testProgram.setClassName(testSource.getClassName());
+                
                 System.out.println("=================================================");
                 System.out.println("child = " + child);
-                System.out.println("child.getUniqueId() = " + child.getUniqueId());
-                System.out.println("child.getDisplayName() = " + child.getDisplayName());
-                System.out.println("child.getParentIdObject() = " + child.getParentIdObject());
                 System.out.println("child.getType() = " + child.getType());
-                System.out.println("child.isTest() = " + child.isTest());
                 System.out.println("child.getSource() = " + child.getSource());
-                System.out.println("child.getSource().orElse(null) = " + child.getSource().orElse(null));
-                ClassSource testSource = (ClassSource) child.getSource().orElse(null);
-                System.out.println(testSource.getClassName());
-                System.out.println("=================================================");
+                System.out.println("child.getDisplayName() = " + child.getDisplayName());
+                System.out.println("child.isTest() = " + child.isTest());
+
+                System.out.println("testObject.toString() = " + testProgram.toString());
             });
         }
 
