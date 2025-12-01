@@ -1,0 +1,193 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaign Home</title>
+    <style>
+        /*
+        body의 스타일을 설정합니다.
+        - font-family: 폰트 가족을 Arial, sans-serif로 설정합니다.
+        - background-image: 배경 이미지를 선형 그라데이션을 사용합니다.
+        - background-attachment: 배경 이미지의 부착 여부를 설정합니다.
+        - margin: 바깥 여백을 0으로 설정합니다.
+        - padding: 안쪽 여백을 0으로 설정합니다.
+        - width: 너비를 95%로 설정합니다.
+        */
+        body {
+            font-family: Arial, sans-serif;
+            background-image: linear-gradient(to bottom, #f7f7f7, #ffffff);
+            background-attachment: fixed;
+            margin: 1px;
+            padding: 1px;
+            width: 97%;
+        }
+        /*
+        header의 스타일을 설정합니다.
+        - background-color: 배경 색상을 파란색으로 설정합니다.
+        - color: 글자 색상을 흰색으로 설정합니다.
+        - padding: 안쪽 여백을 1em으로 설정합니다.
+        - text-align: 텍스트를 가운데 정렬합니다.
+        - border-bottom: 아래쪽 테두리를 설정합니다.
+        - width: 너비를 100%로 설정합니다.
+        */
+        header {
+            background-color: #007bff; /* 파란색 */
+            color: #ffffff;
+            padding: 1em;
+            text-align: center;
+            border-bottom: 2px solid #ffd700; /* 노란색 */
+            width: 100%;
+        }
+        /*
+        main의 스타일을 설정합니다.
+        - display: flex로 설정하여 수직으로 배치합니다.
+        - flex-direction: column으로 설정하여 수직으로 배치합니다.
+        - align-items: flex-start로 설정하여 왼쪽으로 정렬합니다.
+        - height: 높이를 90vh로 설정합니다.
+        - 메인 컨텐츠 영역의 높이를 80vh로 설정합니다.
+        */
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            height: 80vh;
+            margin-top: 20px;
+        }
+        /*
+        .button-container의 스타일을 설정합니다.
+        - display: flex로 설정하여 수평으로 배치합니다.
+        - justify-content: flex-start로 설정하여 왼쪽으로 정렬합니다.
+        - margin-bottom: 버튼 아래쪽 여백을 20px으로 설정합니다.
+        - padding: 안쪽 여백을 0 20px으로 설정합니다.
+        */
+        .button-container {
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+            padding: 0 20px;
+        }
+        /*
+        버튼의 스타일을 설정합니다.
+        - background-color: 배경 색상을 노란색으로 설정합니다.
+        - color: 글자 색상을 파란색으로 설정합니다.
+        - border: 테두리를 없애습니다.
+        - padding: 안쪽 여백을 0.5em 1em으로 설정합니다.
+        - font-size: 폰트 크기를 1em으로 설정합니다.
+        - cursor: 커서를 포인터로 설정합니다.
+        - border-radius: 테두리 모서리를 0.5em으로 설정합니다.
+        - font-weight: 폰트 굵기를 bold로 설정합니다.
+        - box-shadow: 그림자를 설정합니다.
+        - width: 너비를 150px으로 설정합니다.
+        - margin: 바깥 여백을 0 10px으로 설정합니다.
+        */
+        .button-container button {
+            background-color: #ffd700; /* 노란색 */
+            color: #007bff; /* 파란색 */
+            border: none;
+            padding: 0.5em 1em;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 0.5em;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            width: 150px;
+            margin: 0 10px;
+        }
+        /*
+        버튼에 마우스를 올렸을 때의 스타일을 설정합니다.
+        - background-color: 배경 색상을 진한 노란색으로 설정합니다.
+        - color: 글자 색상을 흰색으로 설정합니다.
+        - box-shadow: 그림자를 설정합니다.
+        */
+        .button-container button:hover {
+            background-color: #ffc400; /* 진한 노란색 */
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+        }
+        /*
+        #content의 스타일을 설정합니다.
+        - width: 너비를 100%로 설정합니다.
+        - height: 높이를 80vh로 설정합니다.
+        - border: 테두리를 설정합니다.
+        - padding: 안쪽 여백을 20px으로 설정합니다.
+        */
+        #content {
+            width: 100%;
+            height: 80vh;
+            border: 1px solid #ccc;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Campaign Home</h1>
+</header>
+<main>
+    <div class="button-container">
+        <button id="test-page-btn">테스트 페이지</button>
+        <button id="monitor-btn">아침점검 모니터링</button>
+        <button id="posts-btn">캠페인팀 게시판</button>
+        <button id="maxgauge-btn">MaxGauge</button>
+        <button id="jennifer-btn">Jennifer</button>
+    </div>
+    <div id="content"></div>
+</main>
+<script>
+    /*
+    contentDiv를 전역 변수로 선언합니다.
+    */
+    const contentDiv = document.getElementById('content');
+    /*
+    버튼을 클릭하면 iframe을 생성하여 contentDiv에 추가합니다.
+    */
+    document.getElementById('test-page-btn').addEventListener('click', () => {
+        const iframe = document.createElement('iframe');
+        iframe.src = '/tests';
+        iframe.frameBorder = 0;
+        iframe.width = '100%';
+        iframe.height = '100%';
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(iframe);
+    });
+    document.getElementById('monitor-btn').addEventListener('click', () => {
+        const iframe = document.createElement('iframe');
+        iframe.src = '/monitor';
+        iframe.frameBorder = 0;
+        iframe.width = '100%';
+        iframe.height = '100%';
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(iframe);
+    });
+    document.getElementById('posts-btn').addEventListener('click', () => {
+        const iframe = document.createElement('iframe');
+        iframe.src = '/posts';
+        iframe.frameBorder = 0;
+        iframe.width = '100%';
+        iframe.height = '100%';
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(iframe);
+    });
+    document.getElementById('maxgauge-btn').addEventListener('click', () => {
+        const iframe = document.createElement('iframe');
+        iframe.src = 'http://10.37.16.61:28020/MAXGAUGE/';
+        iframe.frameBorder = 0;
+        iframe.width = '100%';
+        iframe.height = '100%';
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(iframe);
+    });
+    document.getElementById('jennifer-btn').addEventListener('click', () => {
+        const iframe = document.createElement('iframe');
+        iframe.src = 'https://10.37.16.71:7901/userdefine/dashboard?key=30974c95-cb8c-4cb1-9c1a-935c605c2b2f';
+        iframe.frameBorder = 0;
+        iframe.width = '100%';
+        iframe.height = '100%';
+        contentDiv.innerHTML = '';
+        contentDiv.appendChild(iframe);
+    });
+</script>
+</body>
+</html>

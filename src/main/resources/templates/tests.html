@@ -1,0 +1,15 @@
+<!-- templates/tests.html -->
+<html xmlns:th="http://www.thymeleaf.org">
+<head><title>Test UI PoC</title></head>
+<body>
+<h1>Test Summary</h1>
+<p>
+    Total: <span th:text="${summary.total}">0</span><br/>
+    Success: <span th:text="${summary.success}">0</span><br/>
+    Failed: <span th:text="${summary.failed}">0</span><br/>
+</p>
+
+<h2>Tree (나중 확장용)</h2>
+<p th:text="${rootResult.displayName}">Root</p>
+</body>
+</html>
