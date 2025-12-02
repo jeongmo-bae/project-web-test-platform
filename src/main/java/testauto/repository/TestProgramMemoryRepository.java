@@ -13,10 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 @Slf4j
-@Repository
+//@Repository
 public class TestProgramMemoryRepository implements TestProgramRepository{
     // 스레드 안전한 in-memory 저장소
-    private final ConcurrentMap<UniqueId, TestProgram> store = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, TestProgram> store = new ConcurrentHashMap<>();
 
     @Override
     public void save(TestProgram testProgram) {
@@ -32,7 +32,7 @@ public class TestProgramMemoryRepository implements TestProgramRepository{
     }
 
     @Override
-    public Optional<TestProgram> findByUniqueId(UniqueId uniqueId) {
+    public Optional<TestProgram> findByUniqueId(String uniqueId) {
         return Optional.ofNullable(store.get(uniqueId));
     }
 
@@ -42,7 +42,7 @@ public class TestProgramMemoryRepository implements TestProgramRepository{
     }
 
     @Override
-    public List<TestProgram> findByParentId(UniqueId parentUniqueId) {
+    public List<TestProgram> findByParentId(String parentUniqueId) {
         List<TestProgram> result = new ArrayList<>();
         for (TestProgram value : store.values()) {
             if (parentUniqueId.equals(value.getParentUniqueId())) {

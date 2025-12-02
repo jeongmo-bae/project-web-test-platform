@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Controller
-@RequestMapping("/tests")
+@RequestMapping("/testssss")
 public class TestResultController {
 
     @Autowired

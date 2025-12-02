@@ -1,6 +1,6 @@
 package testauto.util.junit;
 
-import testauto.repository.TestResultRepository;
+import testauto.repository.TestResultMemoryRepository;
 import testauto.domain.TestStatus;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.launcher.TestExecutionListener;
@@ -10,9 +10,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class WebTestListener implements TestExecutionListener {
 
-    private final TestResultRepository repository;
+    private final TestResultMemoryRepository repository;
 
-    public WebTestListener(TestResultRepository repository) {
+    public WebTestListener(TestResultMemoryRepository repository) {
         this.repository = repository;
     }
 

@@ -1,6 +1,7 @@
 package testauto.service;
 
-import testauto.repository.TestResultRepository;
+import lombok.RequiredArgsConstructor;
+import testauto.repository.TestResultMemoryRepository;
 import testauto.domain.TestResult;
 import testauto.domain.TestSummary;
 import testauto.util.junit.WebTestListener;
@@ -14,16 +15,11 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class TestExecutionServiceImpl {
 
     private final WebTestListener webTestListener;
-    private final TestResultRepository repository;
-
-    public TestExecutionServiceImpl(WebTestListener webTestListener,
-                                    TestResultRepository repository) {
-        this.webTestListener = webTestListener;
-        this.repository = repository;
-    }
+    private final TestResultMemoryRepository repository;
 
     public void runTests(String className) {
         repository.clear();

@@ -10,8 +10,8 @@ import java.util.Optional;
 public interface TestProgramRepository {
     void save(TestProgram testProgram);
     void saveAll(Collection<TestProgram> testPrograms);
-    Optional<TestProgram> findByUniqueId(UniqueId uniqueId);
+    Optional<TestProgram> findByUniqueId(String uniqueId);
     List<TestProgram> findAll();
-    List<TestProgram> findByParentId(UniqueId parentUniqueId);
+    List<TestProgram> findByParentId(String parentUniqueId);
     void deleteAll();
 }

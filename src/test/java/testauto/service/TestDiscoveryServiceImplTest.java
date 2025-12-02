@@ -1,14 +1,11 @@
 package testauto.service;
 
 import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import testauto.repository.TestProgramRepository;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 class TestDiscoveryServiceImplTest {
@@ -19,7 +16,7 @@ class TestDiscoveryServiceImplTest {
     @DisplayName("TestProgram 전부 저장 테스트")
     void saveTest(){
         //given
-        TestDiscoveryServiceImpl testDiscoveryServiceImpl = new TestDiscoveryServiceImpl(testProgramRepository);
+        TestCatalogServiceImpl testDiscoveryServiceImpl = new TestCatalogServiceImpl(testProgramRepository);
         System.out.println("1.최초 TestProgram 빈거 확인");
         Assertions.assertThat(testProgramRepository.findAll()).isEmpty();
         for (int i = 0; i < testProgramRepository.findAll().size(); i++) {

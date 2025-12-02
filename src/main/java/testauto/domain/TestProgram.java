@@ -4,13 +4,13 @@ import lombok.*;
 import org.junit.platform.engine.UniqueId;
 
 @Getter
-@Setter
-@RequiredArgsConstructor
+@Builder
 @EqualsAndHashCode( of = {"uniqueId"})
 @ToString
 public class TestProgram {
-    private final UniqueId uniqueId;
-    private UniqueId parentUniqueId;
-    private String displayName;
-    private String className;
+    private final String uniqueId;
+    private final String parentUniqueId;
+    private final String displayName;
+    private final String className;
+    private final String type;
 }

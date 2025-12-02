@@ -1,193 +1,175 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html lang="ko">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campaign Home</title>
+    <meta charset="UTF-8"/>
+    <title>Campaign Test Platform</title>
+
     <style>
-        /*
-        body의 스타일을 설정합니다.
-        - font-family: 폰트 가족을 Arial, sans-serif로 설정합니다.
-        - background-image: 배경 이미지를 선형 그라데이션을 사용합니다.
-        - background-attachment: 배경 이미지의 부착 여부를 설정합니다.
-        - margin: 바깥 여백을 0으로 설정합니다.
-        - padding: 안쪽 여백을 0으로 설정합니다.
-        - width: 너비를 95%로 설정합니다.
-        */
         body {
-            font-family: Arial, sans-serif;
-            background-image: linear-gradient(to bottom, #f7f7f7, #ffffff);
-            background-attachment: fixed;
-            margin: 1px;
-            padding: 1px;
-            width: 97%;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
         }
-        /*
-        header의 스타일을 설정합니다.
-        - background-color: 배경 색상을 파란색으로 설정합니다.
-        - color: 글자 색상을 흰색으로 설정합니다.
-        - padding: 안쪽 여백을 1em으로 설정합니다.
-        - text-align: 텍스트를 가운데 정렬합니다.
-        - border-bottom: 아래쪽 테두리를 설정합니다.
-        - width: 너비를 100%로 설정합니다.
-        */
-        header {
-            background-color: #007bff; /* 파란색 */
-            color: #ffffff;
-            padding: 1em;
+
+        /* 상단 헤더 */
+        .app-header {
+            height: 48px;
+            background-color: #010409;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            box-sizing: border-box;
+        }
+
+        .app-header .logo {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f0f6fc;
+            text-decoration: none;
+        }
+
+        .app-header .logo:hover {
+            text-decoration: underline;
+        }
+
+        /* 헤더 아래 전체 레이아웃 */
+        .layout {
+            display: flex;
+            height: calc(100vh - 48px);
+        }
+
+        /* 왼쪽 사이드바 */
+        .sidebar {
+            width: 260px;
+            background-color: #010409;
+            border-right: 1px solid #30363d;
+            padding: 12px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #8b949e;
+            text-transform: uppercase;
+        }
+
+        .tree-root-label {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #e6edf3;
+        }
+
+        .tree {
+            list-style: none;
+            margin: 0;
+            padding-left: 12px;
+            font-size: 13px;
+        }
+
+        .tree-item {
+            margin: 2px 0;
+        }
+
+        .tree-item-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: default;
+        }
+
+        .tree-item-label.folder {
+            color: #8b949e;
+        }
+
+        .tree-item-label.class {
+            color: #c9d1d9;
+        }
+
+        .tree-item-label.class:hover {
+            background-color: #21262d;
+            border-radius: 4px;
+        }
+
+        .tree-item-label span.icon {
+            width: 14px;
             text-align: center;
-            border-bottom: 2px solid #ffd700; /* 노란색 */
-            width: 100%;
+            font-size: 11px;
         }
-        /*
-        main의 스타일을 설정합니다.
-        - display: flex로 설정하여 수직으로 배치합니다.
-        - flex-direction: column으로 설정하여 수직으로 배치합니다.
-        - align-items: flex-start로 설정하여 왼쪽으로 정렬합니다.
-        - height: 높이를 90vh로 설정합니다.
-        - 메인 컨텐츠 영역의 높이를 80vh로 설정합니다.
-        */
-        main {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            height: 80vh;
-            margin-top: 20px;
+
+        /* 우측 메인 영역 */
+        .main {
+            flex: 1;
+            padding: 16px;
+            box-sizing: border-box;
+            overflow-y: auto;
         }
-        /*
-        .button-container의 스타일을 설정합니다.
-        - display: flex로 설정하여 수평으로 배치합니다.
-        - justify-content: flex-start로 설정하여 왼쪽으로 정렬합니다.
-        - margin-bottom: 버튼 아래쪽 여백을 20px으로 설정합니다.
-        - padding: 안쪽 여백을 0 20px으로 설정합니다.
-        */
-        .button-container {
-            display: flex;
-            justify-content: flex-start;
-            margin-bottom: 20px;
-            padding: 0 20px;
-        }
-        /*
-        버튼의 스타일을 설정합니다.
-        - background-color: 배경 색상을 노란색으로 설정합니다.
-        - color: 글자 색상을 파란색으로 설정합니다.
-        - border: 테두리를 없애습니다.
-        - padding: 안쪽 여백을 0.5em 1em으로 설정합니다.
-        - font-size: 폰트 크기를 1em으로 설정합니다.
-        - cursor: 커서를 포인터로 설정합니다.
-        - border-radius: 테두리 모서리를 0.5em으로 설정합니다.
-        - font-weight: 폰트 굵기를 bold로 설정합니다.
-        - box-shadow: 그림자를 설정합니다.
-        - width: 너비를 150px으로 설정합니다.
-        - margin: 바깥 여백을 0 10px으로 설정합니다.
-        */
-        .button-container button {
-            background-color: #ffd700; /* 노란색 */
-            color: #007bff; /* 파란색 */
-            border: none;
-            padding: 0.5em 1em;
-            font-size: 1em;
-            cursor: pointer;
-            border-radius: 0.5em;
-            font-weight: bold;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-            width: 150px;
-            margin: 0 10px;
-        }
-        /*
-        버튼에 마우스를 올렸을 때의 스타일을 설정합니다.
-        - background-color: 배경 색상을 진한 노란색으로 설정합니다.
-        - color: 글자 색상을 흰색으로 설정합니다.
-        - box-shadow: 그림자를 설정합니다.
-        */
-        .button-container button:hover {
-            background-color: #ffc400; /* 진한 노란색 */
-            color: #ffffff;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
-        }
-        /*
-        #content의 스타일을 설정합니다.
-        - width: 너비를 100%로 설정합니다.
-        - height: 높이를 80vh로 설정합니다.
-        - border: 테두리를 설정합니다.
-        - padding: 안쪽 여백을 20px으로 설정합니다.
-        */
-        #content {
-            width: 100%;
-            height: 80vh;
-            border: 1px solid #ccc;
-            padding: 20px;
+
+        .main-placeholder {
+            border: 1px dashed #30363d;
+            border-radius: 6px;
+            padding: 24px;
+            color: #8b949e;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-<header>
-    <h1>Campaign Home</h1>
+
+<!-- 상단 헤더 -->
+<header class="app-header">
+    <!-- 이걸 누르면 /tests 로 이동 -->
+    <a class="logo" th:href="@{/}">Campaign Test Platform</a>
 </header>
-<main>
-    <div class="button-container">
-        <button id="test-page-btn">테스트 페이지</button>
-        <button id="monitor-btn">아침점검 모니터링</button>
-        <button id="posts-btn">캠페인팀 게시판</button>
-        <button id="maxgauge-btn">MaxGauge</button>
-        <button id="jennifer-btn">Jennifer</button>
-    </div>
-    <div id="content"></div>
-</main>
-<script>
-    /*
-    contentDiv를 전역 변수로 선언합니다.
-    */
-    const contentDiv = document.getElementById('content');
-    /*
-    버튼을 클릭하면 iframe을 생성하여 contentDiv에 추가합니다.
-    */
-    document.getElementById('test-page-btn').addEventListener('click', () => {
-        const iframe = document.createElement('iframe');
-        iframe.src = '/tests';
-        iframe.frameBorder = 0;
-        iframe.width = '100%';
-        iframe.height = '100%';
-        contentDiv.innerHTML = '';
-        contentDiv.appendChild(iframe);
-    });
-    document.getElementById('monitor-btn').addEventListener('click', () => {
-        const iframe = document.createElement('iframe');
-        iframe.src = '/monitor';
-        iframe.frameBorder = 0;
-        iframe.width = '100%';
-        iframe.height = '100%';
-        contentDiv.innerHTML = '';
-        contentDiv.appendChild(iframe);
-    });
-    document.getElementById('posts-btn').addEventListener('click', () => {
-        const iframe = document.createElement('iframe');
-        iframe.src = '/posts';
-        iframe.frameBorder = 0;
-        iframe.width = '100%';
-        iframe.height = '100%';
-        contentDiv.innerHTML = '';
-        contentDiv.appendChild(iframe);
-    });
-    document.getElementById('maxgauge-btn').addEventListener('click', () => {
-        const iframe = document.createElement('iframe');
-        iframe.src = 'http://10.37.16.61:28020/MAXGAUGE/';
-        iframe.frameBorder = 0;
-        iframe.width = '100%';
-        iframe.height = '100%';
-        contentDiv.innerHTML = '';
-        contentDiv.appendChild(iframe);
-    });
-    document.getElementById('jennifer-btn').addEventListener('click', () => {
-        const iframe = document.createElement('iframe');
-        iframe.src = 'https://10.37.16.71:7901/userdefine/dashboard?key=30974c95-cb8c-4cb1-9c1a-935c605c2b2f';
-        iframe.frameBorder = 0;
-        iframe.width = '100%';
-        iframe.height = '100%';
-        contentDiv.innerHTML = '';
-        contentDiv.appendChild(iframe);
-    });
-</script>
+
+<!-- 헤더 아래 영역 -->
+<div class="layout">
+
+    <!-- 좌측: 디렉터리 트리 -->
+    <aside class="sidebar">
+        <div class="sidebar-title">Tests</div>
+
+        <!-- 최상위 루트 라벨 (testcode) -->
+        <div class="tree-root-label">📁 testcode</div>
+
+        <!-- 재귀 트리 렌더링 -->
+        <ul class="tree"
+            th:if="${treeNodes != null}"
+            th:insert="~{::treeFragment(${treeNodes})}">
+        </ul>
+
+        <!-- 재귀용 fragment -->
+        <th:block th:fragment="treeFragment(nodes)">
+            <li class="tree-item" th:each="node : ${nodes}">
+                <div class="tree-item-label"
+                     th:classappend="${node.leaf} ? ' class' : ' folder'">
+                    <span class="icon"
+                          th:text="${node.leaf} ? '📄' : '📁'">📁</span>
+                    <span th:text="${node.name}">Name</span>
+                </div>
+
+                <ul class="tree"
+                    th:if="${node.children != null and !#lists.isEmpty(node.children)}"
+                    th:insert="~{::treeFragment(${node.children})}">
+                </ul>
+            </li>
+        </th:block>
+    </aside>
+
+    <!-- 우측: 상세 영역 (지금은 placeholder) -->
+    <main class="main">
+        <div class="main-placeholder">
+            가운데 영역에는<br/>
+            선택한 TestProgram 상세 정보 / 테스트 메서드 목록 / 실행 버튼 등을<br/>
+            차차 붙이면 된다
+        </div>
+    </main>
+
+</div>
 </body>
 </html>
