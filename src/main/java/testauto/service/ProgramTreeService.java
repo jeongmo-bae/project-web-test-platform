@@ -1,7 +1,7 @@
 package testauto.service;
 
-import testauto.domain.TestNode;
+import testauto.dto.TreeNodeDto;
 
 public interface ProgramTreeService {
-    TestNode buildTree();
+    TreeNodeDto buildTree();
 }

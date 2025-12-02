@@ -39,7 +39,7 @@
             height: var(--header-height);
             padding: 0 16px;
             background: var(--bg-subtle);
-            color: var(--text-default);              /* 기본 텍스트 컬러로 */
+            color: var(--text-default);
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -141,6 +141,10 @@
             color: var(--text-muted);
         }
 
+        .tree-children {               /* 🔧 자식 감싸는 컨테이너 */
+            margin-left: 4px;
+        }
+
         /* 메인 컨텐츠 */
 
         .main {
@@ -174,7 +178,7 @@
     <div class="app-header-left">
         <img src="/img/dooduge-logo.png" alt="dooduge Logo" class="app-logo">
         <!-- 이 a 태그 누르면 index로 이동 -->
-        <a href="/" class="app-title">Campaign Test Platform</a>
+        <a href="/static" class="app-title">Campaign Test Platform</a>
     </div>
     <!-- 필요하면 우측 영역 여기에 추가 -->
     <!--
@@ -201,7 +205,7 @@
                     <span th:text="${rootPackageName}">testcode</span>
                 </div>
 
-                <!-- 🔁 여기부터 다시 동적 트리 (Thymeleaf 재귀 fragment) -->
+                <!-- 최상위 노드들 -->
                 <div th:each="node : ${testTree}">
                     <div th:insert="~{::testNodeFragment(node=${node})}"></div>
                 </div>
@@ -224,48 +228,68 @@
 </div>
 
 <!-- 트리 렌더링용 Thymeleaf fragment -->
-<th:block th:fragment="testNodeFragment (node)">
-    <div class="tree-node">
-        <div class="tree-node-label">
-            <span class="tree-node-icon"
-                  th:text="${#lists.isEmpty(node.children)} ? '📄' : '▸'"></span>
-            <span th:text="${node.name}"></span>
+<!-- 트리 렌더링용 Thymeleaf fragment -->
+<th:block th:fragment="testNodeFragment(node)">
+    <!-- node 가 null 로 들어오는 경우 방어 -->
+    <th:block th:if="${node != null}" th:with="n=${node}">
+
+        <div class="tree-node">
+            <div class="tree-node-label">
+                <!-- 자식 없으면 📄, 있으면 ▸ -->
+                <span class="tree-node-icon"
+                      th:text="${#lists.isEmpty(n?.children)} ? '📄' : '▸'">▸</span>
+
+                <!-- 노드 이름 -->
+                <span th:text="${n?.name}">NodeName</span>
+            </div>
+
+            <!-- 자식 노드들 -->
+            <div class="tree-children"
+                 th:if="${!#lists.isEmpty(n?.children)}">
+                <div th:each="child : ${n.children}"
+                     th:insert="~{::testNodeFragment(node=${child})}">
+                </div>
+            </div>
         </div>
 
-        <div th:if="${!#lists.isEmpty(node.children)}"
-             th:each="child : ${node.children}"
-             th:insert="~{::testNodeFragment(node=${child})}">
-        </div>
-    </div>
+    </th:block>
 </th:block>
 
 <script>
     const searchInput = document.getElementById("test-search");
 
+    // 🔧 검색 로직도 조금만 안정화
+    function filterNode(nodeElement, keyword) {
+        const label = nodeElement.querySelector(".tree-node-label .tree-node-name");
+        const childrenContainer = nodeElement.querySelector(":scope > .tree-children");
+        let match = false;
+
+        if (label) {
+            const name = label.textContent.toLowerCase();
+            match = name.includes(keyword);
+        }
+
+        let childMatch = false;
+        if (childrenContainer) {
+            const childNodes = childrenContainer.querySelectorAll(":scope > .tree-node");
+            childNodes.forEach(child => {
+                const visible = filterNode(child, keyword);
+                if (visible) childMatch = true;
+            });
+        }
+
+        const visible = (keyword === "") || match || childMatch;
+        nodeElement.style.display = visible ? "" : "none";
+        return visible;
+    }
+
     searchInput.addEventListener("input", function () {
         const keyword = this.value.toLowerCase();
+        const rootNodes = document.querySelectorAll(".test-tree-container > div[th\\:each], .test-tree-container > div > .tree-node");
 
-        // 모든 트리노드 라벨들 가져오기
-        const nodes = document.querySelectorAll(".tree-node");
-
-        nodes.forEach(node => {
-            const label = node.querySelector(".tree-node-label span:last-child"); // 노드 이름
-            if (!label) return;
-
-            const name = label.textContent.toLowerCase();
-            const match = name.includes(keyword);
-
-            // 매치되거나, 자식 중에서 매치되는 게 있으면 보여줌
-            if (keyword === "") {
-                node.style.display = "";
-            } else {
-                // 자식 중 매치 여부 확인
-                const hasVisibleChild = Array.from(node.querySelectorAll(".tree-node"))
-                    .some(child => child.style.display !== "none");
-
-                node.style.display = (match || hasVisibleChild) ? "" : "none";
-            }
-        });
+        // 최상위 tree-node 기준으로 돌리기
+        const topLevelNodes = document.querySelectorAll(".test-tree-container > div .tree-node");
+        topLevelNodes.forEach(node => filterNode(node, keyword));
     });
 </script>
 
