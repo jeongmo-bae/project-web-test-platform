@@ -3,9 +3,9 @@ package testauto.dto;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TestProgramNode {
+public class TestNodeDto {
     private String name;
     private boolean leaf;
     private String className;
-    private List<TestProgramNode> children = new ArrayList<>();
+    private List<TestNodeDto> children = new ArrayList<>();
 }

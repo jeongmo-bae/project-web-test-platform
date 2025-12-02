@@ -7,7 +7,7 @@ create
 show
     tables from project_testauto;
 
-create table project_testauto.C_TEST_PROGRAM_CATALOG
+create table project_testauto.C_TEST_NODE_CATALOG
 (
     unique_id        varchar(200) not null primary key,
     parent_unique_id varchar(200),
@@ -17,8 +17,7 @@ create table project_testauto.C_TEST_PROGRAM_CATALOG
     updatedat        timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )
 ;
-drop table project_testauto.C_TEST_PROGRAM_CATALOG;
+# drop table project_testauto.C_TEST_NODE_CATALOG;
 
-
-insert into project_testauto.C_TEST_PROGRAM_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
-values (?,?,?,?,?);
+select * from project_testauto.C_TEST_NODE_CATALOG
+where unique_id = '[engine:junit-jupiter]';

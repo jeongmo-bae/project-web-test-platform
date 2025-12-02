@@ -1,209 +1,273 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8"/>
+    <meta charset="UTF-8">
     <title>Campaign Test Platform</title>
-
-    <!-- Favicon 설정 -->
-    <!-- owl-logo.png 를 favicon 으로 사용할 경우 -->
-    <link rel="icon" type="image/png" href="/img/owl-logo.png">
+    <link rel="icon" type="image/png" href="/img/dooduge-logo.png">
 
     <style>
+        :root {
+            --header-height: 56px;
+            --sidebar-width: 260px;
+            --border-color: #d0d7de;
+            --bg-default: #ffffff;
+            --bg-subtle: #f6f8fa;
+            --text-default: #1f2328;
+            --text-muted: #656d76;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: #0d1117;
-            color: #c9d1d9;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text-default);
+            background: var(--bg-subtle);
         }
 
         /* 상단 헤더 */
+
         .app-header {
-            height: 48px;
-            background-color: #010409;
-            border-bottom: 1px solid #30363d;
+            position: sticky;
+            top: 0;
+            z-index: 100;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            height: var(--header-height);
             padding: 0 16px;
-            box-sizing: border-box;
+            background: var(--bg-subtle);
+            color: var(--text-default);              /* 기본 텍스트 컬러로 */
+            border-bottom: 1px solid var(--border-color);
         }
 
-        /* 헤더 로고 영역 (이미지 + 텍스트 링크) */
-        .app-header .logo {
+        .app-header-left {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            color: #f0f6fc;
-            text-decoration: none;          /* 기본 밑줄 제거 */
         }
 
-        /* 호버해도 밑줄 안 가게 */
-        .app-header .logo:hover {
-            text-decoration: none;          /* underline 제거 */
-            opacity: 0.85;                  /* 살짝만 효과 */
-        }
-
-        /* 부엉이 로고 이미지 (동그라미 배경) */
-        .logo-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;             /* 동그라미 마스크 */
-            background-color: #f0f6fc;      /* 동그라미 배경색 */
-            padding: 2px;                   /* 안쪽 여백 */
-            box-sizing: border-box;
-            object-fit: cover;              /* 이미지 꽉 채우기 */
-        }
-
-        /* 헤더 아래 전체 레이아웃 */
-        .layout {
-            display: flex;
-            height: calc(100vh - 48px);
-        }
-
-        /* 왼쪽 사이드바 */
-        .sidebar {
-            width: 260px;
-            background-color: #010409;
-            border-right: 1px solid #30363d;
-            padding: 12px;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-
-        .sidebar-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #8b949e;
-            text-transform: uppercase;
-        }
-
-        .tree-root-label {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #e6edf3;
-        }
-
-        .tree {
-            list-style: none;
-            margin: 0;
-            padding-left: 12px;
-            font-size: 13px;
-        }
-
-        .tree-item {
-            margin: 2px 0;
-        }
-
-        .tree-item-label {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            cursor: default;
-        }
-
-        .tree-item-label.folder {
-            color: #8b949e;
-        }
-
-        .tree-item-label.class {
-            color: #c9d1d9;
-        }
-
-        .tree-item-label.class:hover {
-            background-color: #21262d;
+        .app-logo {
+            width: 28px;
+            height: 28px;
             border-radius: 4px;
         }
 
-        .tree-item-label span.icon {
+        .app-title {
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .app-title:hover {
+            text-decoration: underline;
+        }
+
+        .app-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* 메인 레이아웃 */
+
+        .app-shell {
+            display: flex;
+            min-height: calc(100vh - var(--header-height));
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            border-right: 1px solid var(--border-color);
+            background: var(--bg-default);
+            padding: 16px 12px;
+        }
+
+        .sidebar-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        /* 테스트 트리 영역(좌측) */
+
+        .test-tree-container {
+            font-size: 13px;
+        }
+
+        .tree-root-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .tree-root-label img {
+            width: 16px;
+            height: 16px;
+        }
+
+        .tree-node {
+            padding-left: 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tree-node-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        .tree-node-label:hover {
+            background: var(--bg-subtle);
+        }
+
+        .tree-node-icon {
             width: 14px;
             text-align: center;
             font-size: 11px;
-        }
-        .tree-icon {
-            width: 14px;
-            height: 14px;
-            display: inline-block;
+            color: var(--text-muted);
         }
 
-        /* 우측 메인 영역 */
+        /* 메인 컨텐츠 */
+
         .main {
             flex: 1;
-            padding: 16px;
-            box-sizing: border-box;
-            overflow-y: auto;
+            padding: 16px 24px;
         }
 
-        .main-placeholder {
-            border: 1px dashed #30363d;
+        .main-card {
+            background: var(--bg-default);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
-            padding: 24px;
-            color: #8b949e;
-            font-size: 14px;
+            padding: 16px;
+        }
+
+        .main-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .main-card-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
         }
     </style>
 </head>
 <body>
 
-<!-- 상단 헤더 -->
 <header class="app-header">
-    <!-- 이걸 누르면 / (혹은 /tests) 로 이동 -->
-    <a class="logo" th:href="@{/}">
-        <img src="/img/owl-logo.png" alt="owl logo" class="logo-icon">
-        <span>Campaign Test Platform</span>
-    </a>
+    <div class="app-header-left">
+        <img src="/img/dooduge-logo.png" alt="dooduge Logo" class="app-logo">
+        <!-- 이 a 태그 누르면 index로 이동 -->
+        <a href="/" class="app-title">Campaign Test Platform</a>
+    </div>
+    <!-- 필요하면 우측 영역 여기에 추가 -->
+    <!--
+    <div class="app-header-right">
+        <span>v0.1.0</span>
+    </div>
+    -->
 </header>
 
-<!-- 헤더 아래 영역 -->
-<div class="layout">
-
-    <!-- 좌측: 디렉터리 트리 -->
+<div class="app-shell">
+    <!-- 좌측 사이드바 -->
     <aside class="sidebar">
-        <div class="sidebar-title">Tests</div>
-
-        <!-- 최상위 루트 라벨 (testcode) -->
-        <div class="tree-root-label">
-            <img src="/icons/folder-dark.svg" class="tree-icon" />
-             /testcode
-        </div>
-
-        <!-- 재귀 트리 렌더링 -->
-        <ul class="tree"
-            th:if="${treeNodes != null}"
-            th:insert="~{::treeFragment(${treeNodes})}">
-        </ul>
-
-        <!-- 재귀용 fragment -->
-        <th:block th:fragment="treeFragment(nodes)">
-            <li class="tree-item" th:each="node : ${nodes}">
-                <div class="tree-item-label"
-                     th:classappend="${node.leaf} ? ' class' : ' folder'">
-                    <span class="icon">
-                        <img th:src="${node.leaf} ? '/icons/class-dark.svg' : '/icons/folder-dark.svg'"
-                             class="tree-icon">
-                    </span>
-                    <span th:text="${node.name}">Name</span>
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Tests</div>
+            <input id="test-search"
+                   type="text"
+                   placeholder="Find a test..."
+                   style="width: 100%; padding: 6px 8px; font-size: 13px; margin-bottom: 10px;
+              border: 1px solid var(--border-color); border-radius: 4px;">
+            <div class="test-tree-container">
+                <div class="tree-root-label">
+                    <img src="/icons/folder-dark.svg" alt="">
+                    <!-- 루트 패키지명 -->
+                    <span th:text="${rootPackageName}">testcode</span>
                 </div>
 
-                <ul class="tree"
-                    th:if="${node.children != null and !#lists.isEmpty(node.children)}"
-                    th:insert="~{::treeFragment(${node.children})}">
-                </ul>
-            </li>
-        </th:block>
+                <!-- 🔁 여기부터 다시 동적 트리 (Thymeleaf 재귀 fragment) -->
+                <div th:each="node : ${testTree}">
+                    <div th:insert="~{::testNodeFragment(node=${node})}"></div>
+                </div>
+            </div>
+        </div>
     </aside>
 
-    <!-- 우측: 상세 영역 (지금은 placeholder) -->
+    <!-- 우측 메인 영역 -->
     <main class="main">
-        <div class="main-placeholder">
-            가운데 영역에는<br/>
-            선택한 TestProgram 상세 정보 / 테스트 메서드 목록 / 실행 버튼 등을<br/>
-            차차 붙이면 된다
+        <div class="main-card">
+            <div class="main-card-title">Welcome to Campaign Test Platform</div>
+            <div class="main-card-subtitle">
+                좌측에서 테스트 클래스를 선택한 뒤, 상단 또는 우측에 실행 버튼/필터 넣을 예정.
+            </div>
+
+            <!-- 여기부터는 실제 index 화면에 보여줄 내용 -->
+            <p>이 영역에 최근 테스트 실행 결과, 실행 버튼, 필터 UI 등을 배치하면 됨.</p>
         </div>
     </main>
-
 </div>
+
+<!-- 트리 렌더링용 Thymeleaf fragment -->
+<th:block th:fragment="testNodeFragment (node)">
+    <div class="tree-node">
+        <div class="tree-node-label">
+            <span class="tree-node-icon"
+                  th:text="${#lists.isEmpty(node.children)} ? '📄' : '▸'"></span>
+            <span th:text="${node.name}"></span>
+        </div>
+
+        <div th:if="${!#lists.isEmpty(node.children)}"
+             th:each="child : ${node.children}"
+             th:insert="~{::testNodeFragment(node=${child})}">
+        </div>
+    </div>
+</th:block>
+
+<script>
+    const searchInput = document.getElementById("test-search");
+
+    searchInput.addEventListener("input", function () {
+        const keyword = this.value.toLowerCase();
+
+        // 모든 트리노드 라벨들 가져오기
+        const nodes = document.querySelectorAll(".tree-node");
+
+        nodes.forEach(node => {
+            const label = node.querySelector(".tree-node-label span:last-child"); // 노드 이름
+            if (!label) return;
+
+            const name = label.textContent.toLowerCase();
+            const match = name.includes(keyword);
+
+            // 매치되거나, 자식 중에서 매치되는 게 있으면 보여줌
+            if (keyword === "") {
+                node.style.display = "";
+            } else {
+                // 자식 중 매치 여부 확인
+                const hasVisibleChild = Array.from(node.querySelectorAll(".tree-node"))
+                    .some(child => child.style.display !== "none");
+
+                node.style.display = (match || hasVisibleChild) ? "" : "none";
+            }
+        });
+    });
+</script>
+
 </body>
 </html>

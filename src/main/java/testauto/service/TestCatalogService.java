@@ -1,7 +1,6 @@
 package testauto.service;
 
-import org.junit.platform.engine.UniqueId;
-import testauto.domain.TestProgram;
+import testauto.domain.TestNode;
 
 import java.util.List;
 
@@ -12,5 +11,5 @@ import java.util.List;
  */
 public interface TestCatalogService {
     void refreshTestCatalog();                // 디스커버리 → DB 갱신
-    List<TestProgram> discoverAllTests();          // DB 조회
+    List<TestNode> discoverAllTests();          // DB 조회
 }
