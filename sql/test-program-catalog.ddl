@@ -1,20 +1,24 @@
 show
-databases;
+    databases;
 
 create
-database project_testauto;
+    database project_testauto;
 
 show
-tables from  project_testauto;
+    tables from project_testauto;
 
 create table project_testauto.C_TEST_PROGRAM_CATALOG
 (
-    unique_id       varchar(200) not null primary key,
+    unique_id        varchar(200) not null primary key,
     parent_unique_id varchar(200),
-    displayname    varchar(200),
-    classname      varchar(200),
-    type           varchar(20),
-    updatedat      timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    displayname      varchar(200),
+    classname        varchar(200),
+    type             varchar(20),
+    updatedat        timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )
 ;
 drop table project_testauto.C_TEST_PROGRAM_CATALOG;
+
+
+insert into project_testauto.C_TEST_PROGRAM_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
+values (?,?,?,?,?);

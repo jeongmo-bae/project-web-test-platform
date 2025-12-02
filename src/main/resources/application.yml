@@ -2,27 +2,14 @@ spring:
   application:
     name: testautomation
 
-server:
-  port: 1234
-
-logging:
-  level:
-    org.springframework.jdbc.core: debug
-
-thymeleaf:
-  cache: false
+  thymeleaf:
+    cache: false
 
   datasource:
-    url: jdbc:mysql://localhost:3306/project_testauto
-      ?useSSL=false
-      &serverTimezone=Asia/Seoul
-      &useUnicode=true
-      &characterEncoding=utf8
-      &allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/project_testauto?useSSL=false&serverTimezone=Asia/Seoul&useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
-    #hikari dataSource option
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
@@ -35,5 +22,9 @@ thymeleaf:
       fetch-size: 100
       max-rows: 1000
 
+server:
+  port: 1234
 
-
+logging:
+  level:
+    org.springframework.jdbc.core: debug

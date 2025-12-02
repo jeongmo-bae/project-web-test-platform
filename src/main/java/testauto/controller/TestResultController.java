@@ -1,6 +1,6 @@
 package testauto.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import testauto.domain.TestResult;
 import testauto.domain.TestSummary;
 import testauto.service.TestExecutionServiceImpl;
@@ -11,15 +11,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Controller
-@RequestMapping("/testssss")
+@RequiredArgsConstructor
 public class TestResultController {
 
-    @Autowired
     private final TestExecutionServiceImpl testExecutionServiceImpl;
-
-    public TestResultController(TestExecutionServiceImpl testExecutionServiceImpl) {
-        this.testExecutionServiceImpl = testExecutionServiceImpl;
-    }
 
     @PostMapping("/run")
     public String runTests(@RequestParam("testClass") String testClass) {
@@ -39,8 +34,8 @@ public class TestResultController {
         return "test-results";
     }
 
-    @GetMapping
-    public String index() {
-        return "test-index"; // 간단히 클래스명 입력하는 폼
-    }
+//    @GetMapping
+//    public String index() {
+//        return "test-index"; // 간단히 클래스명 입력하는 폼
+//    }
 }

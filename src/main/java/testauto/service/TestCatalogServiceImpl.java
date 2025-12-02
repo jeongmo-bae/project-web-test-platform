@@ -30,7 +30,8 @@ public class TestCatalogServiceImpl implements TestCatalogService {
     @Override
     public void refreshTestCatalog() {
         repository.deleteAll();
-        discoverAllTests().forEach(repository::save);
+        List<TestProgram> testProgramList = discoverAllTests();
+        repository.saveAll(testProgramList);
     }
 
     @Override
@@ -46,7 +47,7 @@ public class TestCatalogServiceImpl implements TestCatalogService {
         TestPlan testPlan = LauncherFactory.create().discover(request);
         Set<TestIdentifier> roots = testPlan.getRoots();
         for (TestIdentifier id : roots) {
-            discoverChildrenOf(id);
+//            discoverChildrenOf(id);
 
             Set<TestIdentifier> children = testPlan.getChildren(id);
 

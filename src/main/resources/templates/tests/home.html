@@ -122,11 +122,6 @@
             text-align: center;
             font-size: 11px;
         }
-        .tree-icon {
-            width: 14px;
-            height: 14px;
-            display: inline-block;
-        }
 
         /* 우측 메인 영역 */
         .main {
@@ -164,10 +159,7 @@
         <div class="sidebar-title">Tests</div>
 
         <!-- 최상위 루트 라벨 (testcode) -->
-        <div class="tree-root-label">
-            <img src="/icons/folder-dark.svg" class="tree-icon" />
-             /testcode
-        </div>
+        <div class="tree-root-label">📁 testcode</div>
 
         <!-- 재귀 트리 렌더링 -->
         <ul class="tree"
@@ -180,10 +172,8 @@
             <li class="tree-item" th:each="node : ${nodes}">
                 <div class="tree-item-label"
                      th:classappend="${node.leaf} ? ' class' : ' folder'">
-                    <span class="icon">
-                        <img th:src="${node.leaf} ? '/icons/class-dark.svg' : '/icons/folder-dark.svg'"
-                             class="tree-icon">
-                    </span>
+                    <span class="icon"
+                          th:text="${node.leaf} ? '📄' : '📁'">📁</span>
                     <span th:text="${node.name}">Name</span>
                 </div>
 
