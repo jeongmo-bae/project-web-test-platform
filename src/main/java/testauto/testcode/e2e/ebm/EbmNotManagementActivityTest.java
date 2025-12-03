@@ -5,7 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-public class EventBasedCampaignNotManagementActivityTest {
+public class EbmNotManagementActivityTest {
     @Nested
     @DisplayName("관리활동이 아닌, 본부 EBM 선호시간 활용 캠페인 테스트")
     public class EBMNotManagementActivityRecomendedTimeTest {

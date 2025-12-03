@@ -8,7 +8,7 @@
     <style>
         :root {
             --header-height: 56px;
-            --sidebar-width: 260px;
+            --sidebar-width: 320px;
             --border-color: #d0d7de;
             --bg-default: #ffffff;
             --bg-subtle: #f6f8fa;
@@ -133,11 +133,13 @@
             gap: 6px;
             font-weight: 600;
             margin-bottom: 4px;
+            cursor: default;
+            user-select: none;
         }
 
         .tree-root-label img {
-            width: 16px;
-            height: 16px;
+            width: 15px;
+            height: 15px;
         }
 
         /* 노드 한 줄 */
@@ -156,7 +158,7 @@
             background: var(--bg-subtle);
         }
 
-        /* 접기/펼치기 토글 화살표 */
+        /* 접기/펼치기 토글 화살표 (하위 노드) */
         .tree-node-toggle {
             width: 12px;
             text-align: center;
@@ -168,7 +170,7 @@
 
         /* 폴더/파일 아이콘 */
         .tree-node-icon {
-            width: 16px;
+            width: 15px;
             flex-shrink: 0;
             margin-top: 2px;
             display: flex;
@@ -176,8 +178,8 @@
         }
 
         .tree-node-icon img {
-            width: 14px;
-            height: 14px;
+            width: 15px;
+            height: 15px;
             display: block;
         }
 
@@ -261,7 +263,7 @@
                 </div>
 
                 <!-- 최상위 노드들 -->
-                <ul class="tree-root">
+                <ul class="tree-root" id="tree-root">
                     <li th:each="node : ${testTree}">
                         <th:block th:insert="~{::treeNodeFragment(node=${node})}"></th:block>
                     </li>
@@ -294,14 +296,15 @@
         <div class="tree-node"
              th:classappend="${hasChildren} ? ' is-package' : ' is-leaf is-class'"
              th:attr="data-has-children=${hasChildren}">
+
             <!-- 접기/펼치기 화살표 -->
             <span class="tree-node-toggle"
-                  th:text="${hasChildren} ? '▾' : ''">▾</span>
+                  th:text="${hasChildren} ? '▼' : ''">▼</span>
 
-            <!-- 패키지는 폴더 SVG, 클래스는 📄 -->
+            <!-- 아이콘 영역 -->
             <span class="tree-node-icon">
-                <img th:if="${hasChildren}" src="/icons/folder-dark.svg" alt="">
-                <span th:if="${!hasChildren}">📄</span>
+                <img th:if="${hasChildren}" src="/icons/folder-dark.svg" alt="folder">
+                <img th:if="${!hasChildren}" src="/icons/class-dark.svg" alt="class">
             </span>
 
             <!-- 이름 -->
@@ -320,7 +323,7 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        /* ===== 접기/펼치기 ===== */
+        /* ===== 접기/펼치기 (하위 노드) ===== */
         document.querySelectorAll('.tree-node').forEach(nodeEl => {
             const hasChildren = nodeEl.dataset.hasChildren === 'true';
             if (!hasChildren) {
@@ -337,7 +340,7 @@
 
                 const toggle = nodeEl.querySelector('.tree-node-toggle');
                 if (toggle) {
-                    toggle.textContent = isHidden ? '▾' : '▸';
+                    toggle.textContent = isHidden ? '▼' : '▶';
                 }
             });
         });
@@ -403,7 +406,7 @@
 
                 const dx = e.clientX - startX;
                 const minWidth = 180;
-                const maxWidth = 500;
+                const maxWidth = 600;
                 const newWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + dx));
 
                 sidebar.style.width = newWidth + 'px';
