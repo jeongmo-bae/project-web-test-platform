@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 //@Repository
 public class TestNodeMemoryRepository implements TestNodeRepository {
-    // 스레드 안전한 in-memory 저장소
     private final ConcurrentMap<String, TestNode> store = new ConcurrentHashMap<>();
 
     @Override

@@ -11,7 +11,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class ProgramTreeServiceImpl implements ProgramTreeService {
+public class TestTreeServiceImpl implements TestTreeService {
 
     private final String ENGINE_ROOT_ID = "[engine:junit-jupiter]";
     private final String BASE_PACKAGE = "testauto.testcode";
@@ -58,12 +58,10 @@ public class ProgramTreeServiceImpl implements ProgramTreeService {
         if (startIndex == -1 || startIndex >= tokens.length - 1) {
             return;
         }
-
         TreeNodeDto current = root;
 
         for (int i = startIndex + 1; i < tokens.length - 1; i++) {
             String segment = tokens[i];
-
             TreeNodeDto next = null;
             for (TreeNodeDto child : current.getChildren()) {
                 if ("PACKAGE".equals(child.getType()) && segment.equals(child.getName())) {

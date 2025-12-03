@@ -26,7 +26,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class TestCatalogServiceImpl implements TestCatalogService {
     private final TestNodeRepository repository;
-    private final String testCodePackage = "testauto.testcode";
+    private final String TESTCODE_ROOT_PACKAGE = "testauto.testcode";
 
     @Override
     public void refreshTestCatalog() {
@@ -42,7 +42,7 @@ public class TestCatalogServiceImpl implements TestCatalogService {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder
                 .request()
                 .selectors(
-                        DiscoverySelectors.selectPackage(testCodePackage)
+                        DiscoverySelectors.selectPackage(TESTCODE_ROOT_PACKAGE)
                 )
                 .build();
         TestPlan testPlan = LauncherFactory.create().discover(request);

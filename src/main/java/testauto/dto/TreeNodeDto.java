@@ -2,7 +2,6 @@ package testauto.dto;
 
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.ToString;
 
 import java.util.ArrayList;
@@ -16,10 +15,8 @@ public class TreeNodeDto {
         PACKAGE,
         CLASS
     }
-    // 화면에 찍힐 이름
-    private String name;
 
-    // 클래스 노드일 때만 의미 있는 값들
+    private String name;
     private String uniqueId;
     private String parentUniqueId;
     private String className;
@@ -39,7 +36,7 @@ public class TreeNodeDto {
         this.uniqueId = uniqueId;
         this.parentUniqueId = parentUniqueId;
         this.className = className;
-        this.type = (type != null) ? type.name() : null; // 여기서 enum→String 변환
+        this.type = (type != null) ? type.name() : null;
         this.children = (children != null) ? children : new ArrayList<>();
     }
 
