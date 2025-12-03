@@ -7,6 +7,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import testauto.domain.TestNode;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
@@ -37,5 +39,13 @@ class TestNodeDbRepositoryTest {
 
     @Test
     void findByParentId() {
+        //given
+        TestNodeRepository repository = new TestNodeDbRepository(jdbcTemplate);
+        //when
+        List<TestNode> testNodes = repository.findByParentId("[engine:junit-jupiter]");
+        //then
+        testNodes.forEach(System.out::println);
+        Assertions.assertThat(testNodes).isNotEmpty();
+        Assertions.assertThat(testNodes.size()).isEqualTo(5);
     }
 }

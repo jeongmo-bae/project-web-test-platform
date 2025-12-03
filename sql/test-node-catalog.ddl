@@ -17,7 +17,12 @@ create table project_testauto.C_TEST_NODE_CATALOG
     updatedat        timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )
 ;
-# drop table project_testauto.C_TEST_NODE_CATALOG;
+#drop table project_testauto.C_TEST_NODE_CATALOG;
 
-select * from project_testauto.C_TEST_NODE_CATALOG
-where unique_id = '[engine:junit-jupiter]';
+select unique_id,
+       parent_unique_id,
+       displayname,
+       classname,
+       type,
+       updatedat
+from project_testauto.C_TEST_NODE_CATALOG

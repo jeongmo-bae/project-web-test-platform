@@ -55,7 +55,7 @@ public class TestNodeDbRepository implements TestNodeRepository {
 
     @Override
     public List<TestNode> findAll() {
-        return List.of();
+        return jdbcTemplate.query("select * from project_testauto.C_TEST_NODE_CATALOG", rowMapper);
     }
 
     @Override
