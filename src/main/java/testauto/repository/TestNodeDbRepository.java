@@ -30,8 +30,9 @@ public class TestNodeDbRepository implements TestNodeRepository {
 
     @Override
     public void save(TestNode testNode) {
-        String sql = "insert into project_testauto.C_TEST_NODE_CATALOG (unique_id, parent_unique_id, displayname, classname, type)\n" +
-                "values (?,?,?,?,?);";
+        String sql = """
+                insert into bng000a.C_TEST_NODE_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
+                values (?,?,?,?,?);""";
         jdbcTemplate.update(con -> {
             PreparedStatement ps = con.prepareStatement(sql);
             ps.setString(1, testNode.getUniqueId());
@@ -50,21 +51,21 @@ public class TestNodeDbRepository implements TestNodeRepository {
 
     @Override
     public Optional<TestNode> findByUniqueId(String uniqueId) {
-        return jdbcTemplate.query("select * from project_testauto.C_TEST_NODE_CATALOG where unique_id = ?", rowMapper, uniqueId).stream().findFirst();
+        return jdbcTemplate.query("select * from bng000a.C_TEST_NODE_CATALOG where unique_id = ?", rowMapper, uniqueId).stream().findFirst();
     }
 
     @Override
     public List<TestNode> findAll() {
-        return jdbcTemplate.query("select * from project_testauto.C_TEST_NODE_CATALOG", rowMapper);
+        return jdbcTemplate.query("select * from bng000a.C_TEST_NODE_CATALOG", rowMapper);
     }
 
     @Override
     public List<TestNode> findByParentId(String parentUniqueId) {
-        return jdbcTemplate.query("select * from project_testauto.C_TEST_NODE_CATALOG where parent_unique_id = ?", rowMapper, parentUniqueId);
+        return jdbcTemplate.query("select * from bng000a.C_TEST_NODE_CATALOG where parent_unique_id = ?", rowMapper, parentUniqueId);
     }
 
     @Override
     public void deleteAll() {
-        jdbcTemplate.update("delete from project_testauto.C_TEST_NODE_CATALOG where 1=1");
+        jdbcTemplate.update("delete from bng000a.C_TEST_NODE_CATALOG where 1=1");
     }
 }

@@ -2,12 +2,12 @@ show
     databases;
 
 create
-    database project_testauto;
+    database bng000a;
 
 show
-    tables from project_testauto;
+    tables from bng000a;
 
-create table project_testauto.C_TEST_NODE_CATALOG
+create table bng000a.C_TEST_NODE_CATALOG
 (
     unique_id        varchar(200) not null primary key,
     parent_unique_id varchar(200),
@@ -25,4 +25,4 @@ select unique_id,
        classname,
        type,
        updatedat
-from project_testauto.C_TEST_NODE_CATALOG
+from bng000a.C_TEST_NODE_CATALOG

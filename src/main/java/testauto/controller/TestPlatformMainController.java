@@ -21,10 +21,10 @@ public class TestPlatformMainController {
         model.addAttribute("testTree", root.getChildren());
         return "index"; // templates 기준이면 이름 맞춰서
     }
-    @GetMapping("/refresh/catalog")
-    public void refreshCatalog(Model model){
-        testCatalogService.refreshTestCatalog();
-        LastUpdatedTimeDto lastUpdatedTime = testCatalogService.getLastUpdatedTime();
-        model.addAttribute("updatedAt", lastUpdatedTime.getLastUpdatedTime());
-    }
+//    @GetMapping("/refresh/catalog")
+//    public void refreshCatalog(Model model){
+//        testCatalogService.refreshTestCatalog();
+//        LastUpdatedTimeDto lastUpdatedTime = testCatalogService.getLastUpdatedTime();
+//        model.addAttribute("updatedAt", lastUpdatedTime.getLastUpdatedTime());
+//    }
 }
