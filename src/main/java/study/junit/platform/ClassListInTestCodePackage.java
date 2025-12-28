@@ -11,13 +11,16 @@ public class ClassListInTestCodePackage {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                 .selectors(selectPackage("testauto.testcode"))
                 .build();
-        try (LauncherSession session = LauncherFactory.openSession()) {
-            Launcher launcher = session.getLauncher();
-            TestPlan testPlan = launcher.discover(request);
 
-            for (TestIdentifier id : testPlan.getRoots()) {
-                System.out.println("####1. Engine : " + id);
-            }
+        Launcher launcher = LauncherFactory.create();
+        TestPlan testPlan = launcher.discover(request);
+
+        for (TestIdentifier id : testPlan.getRoots()) {
+            System.out.println("####1. Engine : " + id);
+            testPlan.getChildren(id).forEach(child -> {
+                System.out.println("####2. Test Program(Class) : " + child);
+            });
         }
+
     }
 }
