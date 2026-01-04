@@ -7,21 +7,23 @@ import org.junit.platform.launcher.LauncherSession;
 import org.junit.platform.launcher.TestPlan;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
-import testauto.testcode.unit.SampleTest;
 
+import static org.junit.platform.engine.discovery.DiscoverySelectors.selectClass;
 import static org.junit.platform.engine.discovery.DiscoverySelectors.selectMethod;
 
 public class TestPlanPlayground {
     public static void main(String[] args) {
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                 .selectors(
-                        selectMethod(SampleTest.class, "successTest")
+//                        selectMethod(DummyCalcTest.class, "add_test")
+//                        selectMethod(SampleTest.class, "successTest")
+                        selectClass("testauto.testcode.unit.DummyCalcTest")
                 )
                 .build();
         try (LauncherSession session = LauncherFactory.openSession()){
             Launcher launcher = session.getLauncher();
             TestPlan testPlan = launcher.discover(request);
-            System.out.println("=== TestPlan.getRoots : successTest ===");
+            System.out.println("=== TestPlan.getRoots ===");
             testPlan.getRoots()
                     .forEach(
                     root -> { 

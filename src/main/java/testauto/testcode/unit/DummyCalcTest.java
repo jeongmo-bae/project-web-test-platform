@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class DummyCalcTest {
+public class DummyCalcTest {
     @Test
     @DisplayName("성공 테스트")
     void add_test() {
