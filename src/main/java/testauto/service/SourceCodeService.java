@@ -21,7 +21,7 @@ public class SourceCodeService {
     };
 
     /**
-     * 특정 메서드의 소스 코드를 추출합니다.
+     * 특정 메서드의 소스 코드를 추출.
      *
      * @param className 전체 클래스 이름 (예: testauto.testcode.SomeTest)
      * @param methodName 메서드 이름
@@ -76,7 +76,7 @@ public class SourceCodeService {
     }
 
     /**
-     * 클래스의 소스 파일을 찾습니다.
+     * 클래스의 소스 파일을 찾음.
      */
     private File findSourceFile(String className) {
         String relativePath = className.replace('.', '/') + ".java";
@@ -94,8 +94,8 @@ public class SourceCodeService {
     }
 
     /**
-     * 메서드가 주어진 이름과 일치하는지 확인합니다.
-     * JUnit의 displayName은 메서드명() 형태이거나 @DisplayName으로 커스터마이즈될 수 있습니다.
+     * 메서드가 주어진 이름과 일치하는지 확인.
+     * JUnit의 displayName은 메서드명() 형태이거나 @DisplayName으로 커스터마이즈될 수 있음.
      */
     private boolean matchesMethod(MethodDeclaration method, String methodName) {
         // 메서드명이 정확히 일치하는 경우

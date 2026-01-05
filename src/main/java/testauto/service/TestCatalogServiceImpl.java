@@ -136,8 +136,8 @@ public class TestCatalogServiceImpl implements TestCatalogService {
     }
 
     /**
-     * TestIdentifier에서 실제 메서드 이름을 추출합니다.
-     * MethodSource를 사용하여 Java 메서드 이름을 가져옵니다.
+     * TestIdentifier에서 실제 메서드 이름을 추출.
+     * MethodSource를 사용하여 Java 메서드 이름을 가져옴.
      */
     private String extractMethodName(TestIdentifier identifier) {
         return identifier.getSource()
