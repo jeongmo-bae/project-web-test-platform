@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Campaign Test Platform</title>
     <link rel="icon" type="image/png" href="/img/dooduge-logo.png">
     <link rel="stylesheet" href="/css/testauto.css">
@@ -11,26 +12,30 @@
 <header class="app-header">
     <div class="app-header-left">
         <img src="/img/dooduge-logo.png" alt="dooduge Logo" class="app-logo">
-        <!-- 이 a 태그 누르면 index로 이동 -->
         <a href="/" class="app-title">Campaign Test Platform</a>
+    </div>
+    <div class="app-header-right">
+        <button class="nav-button" onclick="showWelcome()">Home</button>
+        <button class="nav-button" onclick="showLatestResults()">Latest Results</button>
     </div>
 </header>
 
 <div class="app-shell">
     <!-- 좌측 사이드바 -->
     <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Test Explorer</h2>
+            <button class="run-button" id="runButton" disabled>Run Selected Tests</button>
+        </div>
         <div class="sidebar-section">
-            <div class="sidebar-section-title">Test-Tree</div>
             <input id="test-search"
                    type="text"
                    placeholder="Find a test..."
-                   style="width: 100%; padding: 6px 8px; font-size: 13px; margin-bottom: 10px;
-              border: 1px solid var(--border-color); border-radius: 4px;">
+                   class="search-input">
             <div class="test-tree-container">
                 <div class="tree-root-label">
                     <img src="/icons/folder-dark.svg" alt="">
-                    <!-- 루트 패키지명 -->
-                    <span th:text="${rootPackageName}">디폴트값임나오면안됨</span>
+                    <span th:text="${rootPackageName}">testcode</span>
                 </div>
 
                 <!-- 최상위 노드들 -->
@@ -48,34 +53,47 @@
 
     <!-- 우측 메인 영역 -->
     <main class="main">
-        <div class="main-card">
-            <div class="main-card-title">Welcome to Campaign Test Platform</div>
-            <div class="main-card-subtitle">
-                좌측에서 테스트 클래스를 선택한 뒤, 상단 또는 우측에 실행 버튼/필터 넣을 예정.
-            </div>
+        <!-- 탭 헤더 -->
+        <div class="tab-header" id="tabHeader" style="display: none;">
+            <button class="tab-button active" data-tab="test-info">Test Information</button>
+            <button class="tab-button" data-tab="test-results">Test Results</button>
+        </div>
 
-            <!-- 여기부터는 실제 index 화면에 보여줄 내용 -->
-            <p>이 영역에 최근 테스트 실행 결과, 실행 버튼, 필터 UI 등을 배치하면 됨.</p>
+        <!-- 컨텐츠 영역 -->
+        <div class="content-area" id="contentArea">
+            <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <p>Select a test class to view details</p>
+            </div>
         </div>
     </main>
 </div>
 
 <!-- 트리 렌더링용 Thymeleaf fragment -->
 <th:block th:fragment="treeNodeFragment (node)">
-    <!-- node / children null-safe로 한 번만 계산 -->
-    <th:block th:with="hasChildren=${node != null and node.children != null and !#lists.isEmpty(node.children)}">
+    <th:block th:with="hasChildren=${node != null and node.children != null and !#lists.isEmpty(node.children)},
+                       hasClassName=${node != null and node.className != null and node.className != ''},
+                       isClass=${node != null and node.type != null and 'CLASS'.equals(node.type)}">
         <div class="tree-node"
-             th:classappend="${hasChildren} ? ' is-package' : ' is-leaf is-class'"
-             th:attr="data-has-children=${hasChildren}">
+             th:classappend="${isClass} ? ' is-class class-node' : (${hasChildren} ? ' is-package' : ' is-leaf')"
+             th:attr="data-has-children=${hasChildren},
+                      data-class=${hasClassName ? node.className : null}">
+
+            <!-- 체크박스 (클래스인 경우만) -->
+            <input th:if="${isClass}"
+                   type="checkbox"
+                   class="class-checkbox"
+                   th:attr="data-class=${node.className}"
+                   onclick="event.stopPropagation();">
 
             <!-- 접기/펼치기 화살표 -->
             <span class="tree-node-toggle"
-                  th:text="${hasChildren} ? '▼' : ''">▼</span>
+                  th:text="${hasChildren} ? '▼' : ''"></span>
 
             <!-- 아이콘 영역 -->
             <span class="tree-node-icon">
-                <img th:if="${hasChildren}" src="/icons/folder-dark.svg" alt="folder">
-                <img th:if="${!hasChildren}" src="/icons/class-dark.svg" alt="class">
+                <img th:if="${isClass}" src="/icons/class-dark.svg" alt="C" title="Test Class">
+                <img th:if="${hasChildren and !isClass}" src="/icons/folder-dark.svg" alt="📁" title="Package">
             </span>
 
             <!-- 이름 -->

@@ -79,17 +79,22 @@ public class TestResultMemoryRepository {
     }
 
     private void accumulate(TestSummary summary, TestResult node) {
-        summary.incTotal();
-        summary.addDuration(node.getDurationMillis());
+        // 자식이 없는 노드(실제 테스트 메서드)만 카운트
+        // JUnit Jupiter 엔진, 클래스, Nested 클래스는 제외
+        if (node.getChildren().isEmpty()) {
+            summary.incTotal();
+            summary.addDuration(node.getDurationMillis());
 
-        if (node.getStatus() == TestStatus.SUCCESS) {
-            summary.incSuccess();
-        } else if (node.getStatus() == TestStatus.FAILED) {
-            summary.incFailed();
-        } else if (node.getStatus() == TestStatus.SKIPPED) {
-            summary.incSkipped();
+            if (node.getStatus() == TestStatus.SUCCESS) {
+                summary.incSuccess();
+            } else if (node.getStatus() == TestStatus.FAILED) {
+                summary.incFailed();
+            } else if (node.getStatus() == TestStatus.SKIPPED) {
+                summary.incSkipped();
+            }
         }
 
+        // 자식 노드들에 대해 재귀적으로 처리
         for (TestResult child : node.getChildren()) {
             accumulate(summary, child);
         }

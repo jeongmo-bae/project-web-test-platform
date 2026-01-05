@@ -46,17 +46,16 @@ public class WebTestListener implements TestExecutionListener {
             default         -> status = TestStatus.SKIPPED;
         }
 
-        String errorMessage = null;
-        String stackTrace = null;
+        final String[] errorMessage = {null};
+        final String[] stackTrace = {null};
 
-        if (result.getThrowable().isPresent()) {
-            Throwable t = result.getThrowable().get();
-            errorMessage = t.getMessage();
-            stackTrace = getStackTraceAsString(t);
-        }
+        result.getThrowable().ifPresent(t -> {
+            errorMessage[0] = t.getMessage();
+            stackTrace[0] = getStackTraceAsString(t);
+        });
 
         String id = testIdentifier.getUniqueId();
-        repository.markFinished(id, status, errorMessage, stackTrace);
+        repository.markFinished(id, status, errorMessage[0], stackTrace[0]);
     }
 
     private String getStackTraceAsString(Throwable t) {

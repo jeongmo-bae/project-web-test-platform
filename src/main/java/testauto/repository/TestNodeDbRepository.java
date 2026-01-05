@@ -46,7 +46,22 @@ public class TestNodeDbRepository implements TestNodeRepository {
 
     @Override
     public void saveAll(Collection<TestNode> testNodes) {
-        testNodes.forEach(this::save);
+        if (testNodes == null || testNodes.isEmpty()) {
+            return;
+        }
+
+        String sql = """
+                insert into bng000a.C_TEST_NODE_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
+                values (?,?,?,?,?)""";
+
+        jdbcTemplate.batchUpdate(sql, testNodes, testNodes.size(),
+                (ps, testNode) -> {
+                    ps.setString(1, testNode.getUniqueId());
+                    ps.setString(2, testNode.getParentUniqueId());
+                    ps.setString(3, testNode.getDisplayName());
+                    ps.setString(4, testNode.getClassName());
+                    ps.setString(5, testNode.getType());
+                });
     }
 
     @Override

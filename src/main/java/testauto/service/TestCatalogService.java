@@ -1,6 +1,7 @@
 package testauto.service;
 
 import testauto.domain.TestNode;
+import testauto.dto.ClassDetailDto;
 
 import java.util.List;
 
@@ -12,4 +13,5 @@ import java.util.List;
 public interface TestCatalogService {
     void refreshTestCatalog();                // 디스커버리 → DB 갱신
     List<TestNode> discoverAllTests();          // DB 조회
+    ClassDetailDto getClassDetail(String className);  // 클래스 상세 정보 조회
 }

@@ -41,6 +41,9 @@ dependencies {
     implementation("org.junit.jupiter:junit-jupiter-engine")
     implementation("org.assertj:assertj-core")
 
+    // JavaParser for source code parsing
+    implementation("com.github.javaparser:javaparser-core:3.26.3")
+
 	runtimeOnly("com.mysql:mysql-connector-j")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 

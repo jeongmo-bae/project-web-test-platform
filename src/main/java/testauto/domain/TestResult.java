@@ -4,8 +4,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Getter @Setter
 @EqualsAndHashCode(of = {"id","displayName"})
@@ -16,7 +16,7 @@ public class TestResult {
     private long durationMillis;
     private String errorMessage;
     private String stackTrace;
-    private List<TestResult> children = new ArrayList<>();
+    private List<TestResult> children = new CopyOnWriteArrayList<>();
 
     public TestResult(String id, String displayName) {
         this.id = id;

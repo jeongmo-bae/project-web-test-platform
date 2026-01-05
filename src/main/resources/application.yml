@@ -23,7 +23,7 @@ spring:
       max-rows: 1000
 
 server:
-  port: 1234
+  port: 9898
 
 logging:
   level:
