@@ -141,17 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/tests/class/${encodeURIComponent(className)}`);
             const data = await response.json();
 
-            const methodsHtml = data.methods.map(method => `
-                <li class="method-item">
-                    <div class="method-header" onclick="toggleMethodCode('${className}', '${escapeHtml(method.methodName)}', this)">
-                        <span class="method-name">✓ ${method.displayName}</span>
-                        <span class="method-toggle">▶</span>
-                    </div>
-                    <div class="method-code-container" style="display: none;">
-                        <pre><code class="java"></code></pre>
-                    </div>
-                </li>
-            `).join('');
+            const methodsHtml = renderMethodItems(data.methods, className);
 
             currentTestInfoCache = `
                 <div class="class-detail">
@@ -176,6 +166,56 @@ document.addEventListener('DOMContentLoaded', () => {
             switchTab('test-info');
         }
     }
+
+    function renderMethodItems(methods, className) {
+        return methods.map(method => {
+            if (method.nestedClass) {
+                // Nested 클래스인 경우
+                const childrenHtml = method.children && method.children.length > 0
+                    ? renderMethodItems(method.children, className)
+                    : '';
+                return `
+                    <li class="method-item nested-class-item">
+                        <div class="nested-class-header" onclick="toggleNestedClass(this)">
+                            <span class="nested-class-toggle">▼</span>
+                            <span class="nested-class-badge">Nested</span>
+                            <span class="nested-class-name">${escapeHtml(method.displayName)}</span>
+                        </div>
+                        <ul class="nested-class-methods">
+                            ${childrenHtml}
+                        </ul>
+                    </li>
+                `;
+            } else {
+                // 일반 테스트 메서드인 경우
+                return `
+                    <li class="method-item">
+                        <div class="method-header" onclick="toggleMethodCode('${className}', '${escapeHtml(method.methodName)}', this)">
+                            <span class="method-name">✓ ${escapeHtml(method.displayName)}</span>
+                            <span class="method-toggle">▶</span>
+                        </div>
+                        <div class="method-code-container" style="display: none;">
+                            <pre><code class="java"></code></pre>
+                        </div>
+                    </li>
+                `;
+            }
+        }).join('');
+    }
+
+    // Nested 클래스 토글 함수
+    window.toggleNestedClass = function(headerElement) {
+        const methodsContainer = headerElement.nextElementSibling;
+        const toggle = headerElement.querySelector('.nested-class-toggle');
+
+        if (methodsContainer.style.display === 'none') {
+            methodsContainer.style.display = 'block';
+            toggle.textContent = '▼';
+        } else {
+            methodsContainer.style.display = 'none';
+            toggle.textContent = '▶';
+        }
+    };
 
     // 전역 함수로 노출
     window.showClassDetail = showClassDetail;
@@ -261,7 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             currentTestResultsCache = `
                 <div class="class-detail">
-                    <h1 class="class-detail-title">Test Results</h1>
                     <div class="test-summary">
                         <div class="summary-item">
                             <span class="summary-value">${summary.total}</span>
@@ -312,6 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showTestResults = showTestResults;
 
     function renderTestResult(result) {
+        // Nested 클래스 자체인지 확인 (children이 있고, id가 [nested-class:...]로 끝나는 경우)
+        const isNestedClass = result.id && /\[nested-class:[^\]]+\]$/.test(result.id);
         const icon = result.status === 'SUCCESS' ? '✓' :
                      result.status === 'FAILED' ? '✗' :
                      result.status === 'SKIPPED' ? '⊘' : '';
@@ -324,10 +365,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<div class="result-error">${escapeHtml(result.errorMessage)}</div>`
             : '';
 
+        const nestedBadge = isNestedClass ? '<span class="nested-class-badge">Nested</span>' : '';
+
         return `
             <li class="result-item ${result.status}">
                 <div class="result-header">
-                    <span class="result-name">${icon} ${escapeHtml(result.displayName)}</span>
+                    <span class="result-name">${icon} ${nestedBadge} ${escapeHtml(result.displayName)}</span>
                     <span class="result-duration">${result.durationMillis}ms</span>
                 </div>
                 ${errorHtml}

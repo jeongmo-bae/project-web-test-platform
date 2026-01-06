@@ -1,11 +1,16 @@
 package testauto.testcode.e2e.ebm;
 
 import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 
 public class EbmNotManagementActivityTest {
+    @BeforeAll
+    @DisplayName("insert test data & submit job schedule")
+    public static void beforeAll() {
+        System.out.println("insert test data");
+        System.out.println("submit job schedule");
+    }
+
     @Nested
     @DisplayName("관리활동이 아닌, 본부 EBM 선호시간 활용 캠페인 테스트")
     public class EBMNotManagementActivityRecomendedTimeTest {
@@ -36,10 +41,11 @@ public class EbmNotManagementActivityTest {
             Assertions.assertThat(1).isEqualTo(5);
         }
 
-        @Test
+        @AfterAll
         @DisplayName("Test Data Rollback")
-        void test6() {
-            Assertions.assertThat(1).isEqualTo(6);
+        public static void afterAll() {
+//            Assertions.assertThat(1).isEqualTo(6);
+            System.out.println("AftertAll - Test Data Rollback");
         }
     }
     @Nested
@@ -72,10 +78,11 @@ public class EbmNotManagementActivityTest {
             Assertions.assertThat(1).isEqualTo(5);
         }
 
-        @Test
+        @AfterAll
         @DisplayName("Test Data Rollback")
-        void test6() {
-            Assertions.assertThat(1).isEqualTo(6);
+        public static void afterAll() {
+//            Assertions.assertThat(1).isEqualTo(6);
+            System.out.println("AftertAll - Test Data Rollback");
         }
     }
 }

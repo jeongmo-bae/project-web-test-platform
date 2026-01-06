@@ -107,7 +107,7 @@ public class TestCatalogServiceImpl implements TestCatalogService {
         Set<TestIdentifier> roots = testPlan.getRoots();
 
         for (TestIdentifier root : roots) {
-            collectMethods(testPlan, root, methods);
+            methods.addAll(collectMethodsHierarchical(testPlan, root));
         }
 
         String simpleClassName = className.substring(className.lastIndexOf('.') + 1);
@@ -119,20 +119,37 @@ public class TestCatalogServiceImpl implements TestCatalogService {
                 .build();
     }
 
-    private void collectMethods(TestPlan testPlan, TestIdentifier identifier, List<TestMethodDto> methods) {
-        if (identifier.isTest()) {
-            String methodName = extractMethodName(identifier);
-            methods.add(TestMethodDto.builder()
-                    .methodName(methodName)
-                    .displayName(identifier.getDisplayName())
-                    .uniqueId(identifier.getUniqueId())
-                    .build());
-        }
+    private List<TestMethodDto> collectMethodsHierarchical(TestPlan testPlan, TestIdentifier identifier) {
+        List<TestMethodDto> result = new ArrayList<>();
 
         Set<TestIdentifier> children = testPlan.getChildren(identifier);
         for (TestIdentifier child : children) {
-            collectMethods(testPlan, child, methods);
+            if (child.isTest()) {
+                String methodName = extractMethodName(child);
+                result.add(TestMethodDto.builder()
+                        .methodName(methodName)
+                        .displayName(child.getDisplayName())
+                        .uniqueId(child.getUniqueId())
+                        .isNestedClass(false)
+                        .build());
+            } else if (child.isContainer() && isNestedClass(child)) {
+                List<TestMethodDto> nestedMethods = collectMethodsHierarchical(testPlan, child);
+                result.add(TestMethodDto.builder()
+                        .displayName(child.getDisplayName())
+                        .uniqueId(child.getUniqueId())
+                        .isNestedClass(true)
+                        .children(nestedMethods)
+                        .build());
+            } else {
+                result.addAll(collectMethodsHierarchical(testPlan, child));
+            }
         }
+
+        return result;
+    }
+
+    private boolean isNestedClass(TestIdentifier identifier) {
+        return identifier.getUniqueId().contains("[nested-class:");
     }
 
     /**
