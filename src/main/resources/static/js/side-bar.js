@@ -365,6 +365,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<div class="result-error">${escapeHtml(result.errorMessage)}</div>`
             : '';
 
+        const stdoutHtml = result.stdout
+            ? `<div class="result-stdout"><strong>Output:</strong><pre>${escapeHtml(result.stdout)}</pre></div>`
+            : '';
+
         const nestedBadge = isNestedClass ? '<span class="nested-class-badge">Nested</span>' : '';
 
         return `
@@ -374,6 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="result-duration">${result.durationMillis}ms</span>
                 </div>
                 ${errorHtml}
+                ${stdoutHtml}
                 ${childrenHtml}
             </li>
         `;

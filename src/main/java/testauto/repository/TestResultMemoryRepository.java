@@ -49,6 +49,14 @@ public class TestResultMemoryRepository {
                              TestStatus status,
                              String errorMessage,
                              String stackTrace) {
+        markFinished(id, status, errorMessage, stackTrace, null);
+    }
+
+    public void markFinished(String id,
+                             TestStatus status,
+                             String errorMessage,
+                             String stackTrace,
+                             String stdout) {
 
         TestResult node = nodeMap.get(id);
         if (node == null) {
@@ -64,6 +72,7 @@ public class TestResultMemoryRepository {
 
         node.setErrorMessage(errorMessage);
         node.setStackTrace(stackTrace);
+        node.setStdout(stdout);
     }
 
     public List<TestResult> findRootResults() {

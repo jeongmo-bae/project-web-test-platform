@@ -16,6 +16,7 @@ public class TestResult {
     private long durationMillis;
     private String errorMessage;
     private String stackTrace;
+    private String stdout;                // Standard output captured during test execution
     private List<TestResult> children = new CopyOnWriteArrayList<>();
 
     public TestResult(String id, String displayName) {

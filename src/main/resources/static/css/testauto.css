@@ -533,6 +533,34 @@ body {
     color: #721c24;
 }
 
+.result-stdout {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(0, 123, 255, 0.05);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.result-stdout strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #007bff;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.result-stdout pre {
+    margin: 0;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    color: var(--text-default);
+}
+
 .result-children {
     margin-left: 20px;
     margin-top: 8px;

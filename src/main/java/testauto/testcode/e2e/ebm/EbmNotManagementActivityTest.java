@@ -17,6 +17,7 @@ public class EbmNotManagementActivityTest {
         @Test
         @DisplayName("수행 고객군 정상 생성 테스트")
         void test1() {
+            System.out.println("성공 시에도 로그 출력 테스트");
             Assertions.assertThat(1).isEqualTo(1);
         }
         @Test
