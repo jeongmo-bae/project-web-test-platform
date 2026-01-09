@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import testauto.domain.TestExecution;
 import testauto.domain.TestResult;
 import testauto.domain.TestSummary;
 import testauto.dto.ClassDetailDto;
@@ -36,6 +37,15 @@ public class TestApiController {
         TreeNodeDto tree = testTreeService.buildTree();
         return ResponseEntity.ok(tree);
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshResponse> refreshTestCatalog() {
+        testCatalogService.refreshTestCatalog();
+        TreeNodeDto tree = testTreeService.buildTree();
+        return ResponseEntity.ok(new RefreshResponse("SUCCESS", "Test catalog refreshed", tree));
+    }
+
+    public record RefreshResponse(String status, String message, TreeNodeDto tree) {}
 
     @GetMapping("/class/{className}")
     public ResponseEntity<ClassDetailDto> getClassDetail(@PathVariable @NotBlank(message = "Class name cannot be blank") String className) {
@@ -76,4 +86,38 @@ public class TestApiController {
 
     public record TestResultsResponse(TestSummary summary, List<TestResult> results) {}
     public record MethodCodeResponse(String code) {}
+
+    @GetMapping("/executions")
+    public ResponseEntity<List<TestExecution>> getRecentExecutions(
+            @RequestParam(defaultValue = "20") int limit) {
+        List<TestExecution> executions = testExecutionService.getRecentExecutions(limit);
+        return ResponseEntity.ok(executions);
+    }
+
+    @GetMapping("/executions/{executionId}/results")
+    public ResponseEntity<TestResultsResponse> getExecutionResults(
+            @PathVariable String executionId) {
+        List<TestResult> results = testExecutionService.getExecutionResultTree(executionId);
+
+        // Summary 계산
+        TestSummary summary = new TestSummary();
+        calculateSummary(results, summary);
+
+        return ResponseEntity.ok(new TestResultsResponse(summary, results));
+    }
+
+    private void calculateSummary(List<TestResult> results, TestSummary summary) {
+        for (TestResult result : results) {
+            if (result.getChildren().isEmpty()) {
+                summary.incTotal();
+                summary.addDuration(result.getDurationMillis());
+                switch (result.getStatus()) {
+                    case SUCCESS -> summary.incSuccess();
+                    case FAILED -> summary.incFailed();
+                    case SKIPPED -> summary.incSkipped();
+                }
+            }
+            calculateSummary(result.getChildren(), summary);
+        }
+    }
 }

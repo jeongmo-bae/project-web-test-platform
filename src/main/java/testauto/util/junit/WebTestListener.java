@@ -1,7 +1,8 @@
 package testauto.util.junit;
 
-import testauto.repository.TestResultMemoryRepository;
+import testauto.domain.TestResult;
 import testauto.domain.TestStatus;
+import testauto.domain.TestSummary;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
@@ -9,13 +10,20 @@ import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class WebTestListener implements TestExecutionListener {
 
-    private final TestResultMemoryRepository repository;
+    // id -> TestResult
+    private final Map<String, TestResult> nodeMap = new ConcurrentHashMap<>();
+
+    // 루트 노드들
+    private final List<TestResult> roots = Collections.synchronizedList(new ArrayList<>());
+
+    // 시작 시간 측정용
+    private final Map<String, Long> startTimeMap = new ConcurrentHashMap<>();
 
     // Store original System.out
     private final PrintStream originalOut = System.out;
@@ -23,8 +31,10 @@ public class WebTestListener implements TestExecutionListener {
     // Map to store stdout captures for each test
     private final Map<String, ByteArrayOutputStream> stdoutCaptures = new ConcurrentHashMap<>();
 
-    public WebTestListener(TestResultMemoryRepository repository) {
-        this.repository = repository;
+    public void clear() {
+        nodeMap.clear();
+        roots.clear();
+        startTimeMap.clear();
     }
 
     @Override
@@ -35,10 +45,24 @@ public class WebTestListener implements TestExecutionListener {
 
         String id = testIdentifier.getUniqueId();
         String displayName = testIdentifier.getDisplayName();
-
         String parentId = testIdentifier.getParentId().orElse(null);
 
-        repository.markStarted(id, displayName, parentId);
+        // 결과 노드 생성 및 저장
+        TestResult node = new TestResult(id, displayName);
+        nodeMap.put(id, node);
+
+        if (parentId != null) {
+            TestResult parent = nodeMap.get(parentId);
+            if (parent != null) {
+                parent.addChild(node);
+            } else {
+                roots.add(node);
+            }
+        } else {
+            roots.add(node);
+        }
+
+        startTimeMap.put(id, System.currentTimeMillis());
 
         // Start capturing stdout for actual test methods only (not containers)
         if (testIdentifier.isTest()) {
@@ -90,7 +114,52 @@ public class WebTestListener implements TestExecutionListener {
             }
         }
 
-        repository.markFinished(id, status, errorMessage[0], stackTrace[0], capturedStdout);
+        // 결과 노드 업데이트
+        TestResult node = nodeMap.get(id);
+        if (node != null) {
+            node.setStatus(status);
+
+            Long startTime = startTimeMap.get(id);
+            if (startTime != null) {
+                node.setDurationMillis(System.currentTimeMillis() - startTime);
+            }
+
+            node.setErrorMessage(errorMessage[0]);
+            node.setStackTrace(stackTrace[0]);
+            node.setStdout(capturedStdout);
+        }
+    }
+
+    public List<TestResult> findRootResults() {
+        return new ArrayList<>(roots);
+    }
+
+    public TestSummary buildSummary() {
+        TestSummary summary = new TestSummary();
+        for (TestResult root : roots) {
+            accumulate(summary, root);
+        }
+        return summary;
+    }
+
+    private void accumulate(TestSummary summary, TestResult node) {
+        // 자식이 없는 노드(실제 테스트 메서드)만 카운트
+        if (node.getChildren().isEmpty()) {
+            summary.incTotal();
+            summary.addDuration(node.getDurationMillis());
+
+            if (node.getStatus() == TestStatus.SUCCESS) {
+                summary.incSuccess();
+            } else if (node.getStatus() == TestStatus.FAILED) {
+                summary.incFailed();
+            } else if (node.getStatus() == TestStatus.SKIPPED) {
+                summary.incSkipped();
+            }
+        }
+
+        for (TestResult child : node.getChildren()) {
+            accumulate(summary, child);
+        }
     }
 
     private String getStackTraceAsString(Throwable t) {

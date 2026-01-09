@@ -1,40 +1,58 @@
 document.addEventListener('DOMContentLoaded', () => {
     let selectedClasses = new Set();
-    let currentTab = 'test-info';
-    let currentTestInfoCache = null; // 테스트 정보 캐시
-    let currentTestResultsCache = null; // 테스트 결과 캐시
+    let currentView = 'home';
+    let currentTestInfoCache = null;
+    let currentTestResultsCache = null;
 
     const runButton = document.getElementById('runButton');
-    const contentArea = document.getElementById('contentArea');
-    const tabHeader = document.getElementById('tabHeader');
+    const refreshButton = document.getElementById('refreshButton');
 
-    /* ===== 탭 전환 ===== */
-    function switchTab(tabName) {
-        currentTab = tabName;
+    // 뷰 패널 요소들
+    const viewPanels = {
+        'home': document.getElementById('viewHome'),
+        'test-info': document.getElementById('viewTestInfo'),
+        'test-results': document.getElementById('viewTestResults')
+    };
 
-        // 탭 버튼 활성화 상태 변경
-        document.querySelectorAll('.tab-button').forEach(btn => {
-            if (btn.dataset.tab === tabName) {
+    const testInfoContent = document.getElementById('testInfoContent');
+    const testResultsContent = document.getElementById('testResultsContent');
+
+    /* ===== 헤더 네비게이션 ===== */
+    const headerNavButtons = document.querySelectorAll('.header-nav-button');
+
+    function switchView(viewName) {
+        currentView = viewName;
+
+        // 버튼 활성화 상태 변경
+        headerNavButtons.forEach(btn => {
+            if (btn.dataset.view === viewName) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
             }
         });
 
-        // 컨텐츠 표시
-        if (tabName === 'test-info' && currentTestInfoCache) {
-            contentArea.innerHTML = currentTestInfoCache;
-        } else if (tabName === 'test-results' && currentTestResultsCache) {
-            contentArea.innerHTML = currentTestResultsCache;
-        } else if (tabName === 'test-results' && !currentTestResultsCache) {
-            showTestResults();
+        // 뷰 패널 전환
+        Object.entries(viewPanels).forEach(([key, panel]) => {
+            if (panel) {
+                if (key === viewName) {
+                    panel.classList.add('active');
+                } else {
+                    panel.classList.remove('active');
+                }
+            }
+        });
+
+        // test-results 뷰로 전환시 결과 로드
+        if (viewName === 'test-results' && !currentTestResultsCache) {
+            loadTestResults();
         }
     }
 
-    // 탭 버튼 클릭 이벤트
-    document.querySelectorAll('.tab-button').forEach(btn => {
+    // 네비게이션 버튼 클릭 이벤트
+    headerNavButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            switchTab(btn.dataset.tab);
+            switchView(btn.dataset.view);
         });
     });
 
@@ -46,7 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         nodeEl.addEventListener('click', (e) => {
-            // 체크박스 클릭은 무시
             if (e.target.classList.contains('class-checkbox')) {
                 return;
             }
@@ -70,12 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         checkbox.addEventListener('change', function(e) {
             e.stopPropagation();
             const className = this.dataset.class || this.closest('.class-node').dataset.class;
-            console.log('Checkbox changed:', {
-                checked: this.checked,
-                className: className,
-                datasetClass: this.dataset.class,
-                selectedClasses: Array.from(selectedClasses)
-            });
             if (this.checked) {
                 selectedClasses.add(className);
             } else {
@@ -84,27 +95,16 @@ document.addEventListener('DOMContentLoaded', () => {
             updateRunButton();
         });
 
-        // 클릭 이벤트도 처리 (이벤트 전파 방지)
         checkbox.addEventListener('click', function(e) {
             e.stopPropagation();
         });
     });
 
     function updateRunButton() {
-        console.log('updateRunButton called:', {
-            selectedClassesSize: selectedClasses.size,
-            selectedClassesArray: Array.from(selectedClasses),
-            runButtonExists: !!runButton,
-            currentDisabled: runButton ? runButton.disabled : 'N/A'
-        });
         runButton.disabled = selectedClasses.size === 0;
         runButton.textContent = selectedClasses.size > 0
             ? `Run Selected Tests (${selectedClasses.size})`
             : 'Run Selected Tests';
-        console.log('After update:', {
-            disabled: runButton.disabled,
-            text: runButton.textContent
-        });
     }
 
     /* ===== 클래스 클릭 이벤트 ===== */
@@ -126,18 +126,29 @@ document.addEventListener('DOMContentLoaded', () => {
     runButton.addEventListener('click', function() {
         if (selectedClasses.size === 0) return;
 
+        const classesToRun = Array.from(selectedClasses);
+
+        // 실행 요청 시작 시 선택 초기화
+        clearSelection();
+
         runButton.disabled = true;
         runButton.textContent = 'Running...';
 
-        runTests(Array.from(selectedClasses));
+        runTests(classesToRun);
     });
+
+    /* ===== 선택 초기화 ===== */
+    function clearSelection() {
+        selectedClasses.clear();
+        document.querySelectorAll('.class-checkbox').forEach(cb => {
+            cb.checked = false;
+        });
+        updateRunButton();
+    }
 
     /* ===== 클래스 상세보기 ===== */
     async function showClassDetail(className) {
         try {
-            // 탭 헤더 표시
-            tabHeader.style.display = 'flex';
-
             const response = await fetch(`/api/tests/class/${encodeURIComponent(className)}`);
             const data = await response.json();
 
@@ -153,24 +164,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // Test Information 탭으로 전환
-            switchTab('test-info');
+            testInfoContent.innerHTML = currentTestInfoCache;
+
+            // Test Information 뷰로 전환
+            switchView('test-info');
         } catch (error) {
             console.error('Failed to load class detail:', error);
-            currentTestInfoCache = `
+            testInfoContent.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">❌</div>
+                    <div class="empty-state-icon">X</div>
                     <p>Failed to load class details</p>
                 </div>
             `;
-            switchTab('test-info');
+            switchView('test-info');
         }
     }
 
     function renderMethodItems(methods, className) {
         return methods.map(method => {
             if (method.nestedClass) {
-                // Nested 클래스인 경우
                 const childrenHtml = method.children && method.children.length > 0
                     ? renderMethodItems(method.children, className)
                     : '';
@@ -187,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </li>
                 `;
             } else {
-                // 일반 테스트 메서드인 경우
                 return `
                     <li class="method-item">
                         <div class="method-header" onclick="toggleMethodCode('${className}', '${escapeHtml(method.methodName)}', this)">
@@ -217,7 +228,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 전역 함수로 노출
     window.showClassDetail = showClassDetail;
 
     /* ===== 메서드 코드 토글 ===== */
@@ -227,14 +237,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const codeElement = codeContainer.querySelector('code');
         const toggle = headerElement.querySelector('.method-toggle');
 
-        // 이미 열려있으면 닫기
         if (codeContainer.style.display !== 'none') {
             codeContainer.style.display = 'none';
             toggle.textContent = '▶';
             return;
         }
 
-        // 코드가 아직 로드되지 않았으면 로드
         if (!codeElement.textContent) {
             try {
                 const response = await fetch(`/api/tests/method/${encodeURIComponent(className)}/${encodeURIComponent(methodName)}/code`);
@@ -246,7 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 코드 표시
         codeContainer.style.display = 'block';
         toggle.textContent = '▼';
     };
@@ -254,9 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ===== 테스트 실행 ===== */
     async function runTests(classNames) {
         try {
-            // 탭 헤더 표시
-            tabHeader.style.display = 'flex';
-
             const response = await fetch('/api/tests/run', {
                 method: 'POST',
                 headers: {
@@ -268,11 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
 
             if (result.status === 'COMPLETED') {
-                // 결과 캐시 초기화 (새로운 테스트 실행이므로)
                 currentTestResultsCache = null;
-                await showTestResults();
-                // Test Results 탭으로 자동 전환
-                switchTab('test-results');
+                await loadTestResults();
+                switchView('test-results');
             } else {
                 alert('Test execution failed: ' + result.message);
             }
@@ -285,12 +287,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /* ===== 테스트 결과 보기 ===== */
-    async function showTestResults() {
+    /* ===== 테스트 결과 로드 ===== */
+    async function loadTestResults() {
         try {
-            // 탭 헤더 표시
-            tabHeader.style.display = 'flex';
-
             const response = await fetch('/api/tests/results');
             const data = await response.json();
 
@@ -329,29 +328,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // 현재 탭이 test-results이면 바로 표시
-            if (currentTab === 'test-results') {
-                contentArea.innerHTML = currentTestResultsCache;
-            }
+            testResultsContent.innerHTML = currentTestResultsCache;
         } catch (error) {
             console.error('Failed to load test results:', error);
             currentTestResultsCache = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">❌</div>
+                    <div class="empty-state-icon">X</div>
                     <p>Failed to load test results</p>
                 </div>
             `;
-            if (currentTab === 'test-results') {
-                contentArea.innerHTML = currentTestResultsCache;
-            }
+            testResultsContent.innerHTML = currentTestResultsCache;
         }
     }
 
-    // 전역 함수로 노출
-    window.showTestResults = showTestResults;
+    window.loadTestResults = loadTestResults;
+    window.switchView = switchView;
 
     function renderTestResult(result) {
-        // Nested 클래스 자체인지 확인 (children이 있고, id가 [nested-class:...]로 끝나는 경우)
         const isNestedClass = result.id && /\[nested-class:[^\]]+\]$/.test(result.id);
         const icon = result.status === 'SUCCESS' ? '✓' :
                      result.status === 'FAILED' ? '✗' :
@@ -415,7 +408,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const visible = keyword === '' || selfMatch || childMatch;
         liElement.style.display = visible ? '' : 'none';
 
-        // 검색어가 있으면 일치하는 쪽은 펼쳐주기
         if (childrenUl && visible && keyword !== '') {
             childrenUl.style.display = 'block';
         }
@@ -427,6 +419,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const keyword = this.value.toLowerCase();
         const topLevelLis = document.querySelectorAll('.tree-root > li');
         topLevelLis.forEach(li => filterNode(li, keyword));
+    });
+
+    /* ===== 테스트 목록 새로고침 ===== */
+    refreshButton.addEventListener('click', async function() {
+        refreshButton.classList.add('loading');
+
+        try {
+            const response = await fetch('/api/tests/refresh', {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.status === 'SUCCESS') {
+                // 페이지 새로고침으로 트리 업데이트
+                window.location.reload();
+            } else {
+                alert('Failed to refresh test catalog');
+            }
+        } catch (error) {
+            console.error('Failed to refresh:', error);
+            alert('Failed to refresh test catalog');
+        } finally {
+            refreshButton.classList.remove('loading');
+        }
     });
 
     /* ===== 사이드바 리사이즈 ===== */
@@ -464,37 +480,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-/* ===== 네비게이션 함수들 (전역) ===== */
-function showWelcome() {
-    const contentArea = document.getElementById('contentArea');
-    const tabHeader = document.getElementById('tabHeader');
-
-    // 탭 헤더 숨기기
-    tabHeader.style.display = 'none';
-
-    contentArea.innerHTML = `
-        <div class="empty-state">
-            <div class="empty-state-icon">📋</div>
-            <p>Select a test class to view details or check tests and run them</p>
-        </div>
-    `;
-
-    // 선택 해제
-    document.querySelectorAll('.class-node').forEach(n => n.classList.remove('selected'));
-}
-
-async function showLatestResults() {
-    if (window.showTestResults) {
-        await window.showTestResults();
-        // Test Results 탭으로 전환
-        const tabButtons = document.querySelectorAll('.tab-button');
-        tabButtons.forEach(btn => {
-            if (btn.dataset.tab === 'test-results') {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-    }
-}

@@ -14,17 +14,22 @@
         <img src="/img/dooduge-logo.png" alt="dooduge Logo" class="app-logo">
         <a href="/" class="app-title">Campaign Test Platform</a>
     </div>
-    <div class="app-header-right">
-        <button class="nav-button" onclick="showWelcome()">Home</button>
-        <button class="nav-button" onclick="showLatestResults()">Latest Results</button>
-    </div>
+    <nav class="app-header-nav">
+        <button class="header-nav-button active" data-view="home">Home</button>
+        <button class="header-nav-button" data-view="test-info">Test Information</button>
+        <button class="header-nav-button" data-view="test-results">Test Results</button>
+    </nav>
+    <div class="app-header-right"></div>
 </header>
 
 <div class="app-shell">
     <!-- 좌측 사이드바 -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <h2>Test Explorer</h2>
+            <div class="sidebar-title-row">
+                <h2>Test Explorer</h2>
+                <button class="refresh-button" id="refreshButton" title="Refresh test list">↻</button>
+            </div>
             <button class="run-button" id="runButton" disabled>Run Selected Tests</button>
         </div>
         <div class="sidebar-section">
@@ -53,17 +58,31 @@
 
     <!-- 우측 메인 영역 -->
     <main class="main">
-        <!-- 탭 헤더 -->
-        <div class="tab-header" id="tabHeader" style="display: none;">
-            <button class="tab-button active" data-tab="test-info">Test Information</button>
-            <button class="tab-button" data-tab="test-results">Test Results</button>
-        </div>
-
-        <!-- 컨텐츠 영역 -->
-        <div class="content-area" id="contentArea">
+        <!-- Home 뷰 -->
+        <div class="view-panel active" id="viewHome">
             <div class="empty-state">
                 <div class="empty-state-icon">📋</div>
                 <p>Select a test class to view details</p>
+            </div>
+        </div>
+
+        <!-- Test Information 뷰 -->
+        <div class="view-panel" id="viewTestInfo">
+            <div class="content-area" id="testInfoContent">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📝</div>
+                    <p>Select a test class from the left panel</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Results 뷰 -->
+        <div class="view-panel" id="viewTestResults">
+            <div class="content-area" id="testResultsContent">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <p>No test results available</p>
+                </div>
             </div>
         </div>
     </main>

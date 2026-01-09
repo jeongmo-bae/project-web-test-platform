@@ -83,6 +83,50 @@ body {
     border-color: #0969da;
 }
 
+/* 헤더 중앙 네비게이션 */
+.app-header-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-default);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.header-nav-button {
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+
+.header-nav-button:hover {
+    color: var(--text-default);
+    background: var(--bg-subtle);
+}
+
+.header-nav-button.active {
+    background: #007bff;
+    color: white;
+    font-weight: 600;
+}
+
+/* 뷰 패널 */
+.view-panel {
+    display: none;
+    height: 100%;
+}
+
+.view-panel.active {
+    display: block;
+}
+
 /* 메인 레이아웃 */
 
 .app-shell {
@@ -250,10 +294,49 @@ body {
     border-bottom: 1px solid var(--border-color);
 }
 
+.sidebar-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
 .sidebar-header h2 {
     font-size: 16px;
     font-weight: 600;
-    margin-bottom: 10px;
+    margin: 0;
+}
+
+.refresh-button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.refresh-button:hover {
+    background: var(--bg-default);
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.refresh-button.loading {
+    animation: spin 1s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .run-button {
