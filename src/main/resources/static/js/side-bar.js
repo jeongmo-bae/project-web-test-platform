@@ -2,7 +2,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedClasses = new Set();
     let currentView = 'home';
     let currentTestInfoCache = null;
-    let currentTestResultsCache = null;
+    let executionListCache = null;
+    let selectedExecutionId = null;
 
     const runButton = document.getElementById('runButton');
     const refreshButton = document.getElementById('refreshButton');
@@ -44,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // test-results 뷰로 전환시 결과 로드
-        if (viewName === 'test-results' && !currentTestResultsCache) {
+        if (viewName === 'test-results' && !executionListCache) {
             loadTestResults();
         }
     }
@@ -155,12 +156,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const methodsHtml = renderMethodItems(data.methods, className);
 
             currentTestInfoCache = `
-                <div class="class-detail">
-                    <h1 class="class-detail-title">${data.className}</h1>
-                    <h2>${data.fullClassName}</h2>
-                    <ul class="method-list">
-                        ${methodsHtml}
-                    </ul>
+                <div class="test-info-panel">
+                    <div class="test-info-header">Information</div>
+                    <div class="test-info-body">
+                        <div class="class-detail">
+                            <h1 class="class-detail-title">${data.className}</h1>
+                            <h2>${data.fullClassName}</h2>
+                            <ul class="method-list">
+                                ${methodsHtml}
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             `;
 
@@ -189,11 +195,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return `
                     <li class="method-item nested-class-item">
                         <div class="nested-class-header" onclick="toggleNestedClass(this)">
-                            <span class="nested-class-toggle">▼</span>
+                            <span class="nested-class-toggle">▶</span>
                             <span class="nested-class-badge">Nested</span>
                             <span class="nested-class-name">${escapeHtml(method.displayName)}</span>
                         </div>
-                        <ul class="nested-class-methods">
+                        <ul class="nested-class-methods" style="display: none;">
                             ${childrenHtml}
                         </ul>
                     </li>
@@ -271,10 +277,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await response.json();
 
-            if (result.status === 'COMPLETED') {
-                currentTestResultsCache = null;
-                await loadTestResults();
+            if (result.status === 'RUNNING' || result.status === 'COMPLETED') {
+                // 임시 RUNNING 항목을 캐시에 추가하여 즉시 표시
+                const tempExecution = {
+                    executionId: result.executionId,
+                    startedAt: new Date().toISOString(),
+                    status: 'RUNNING',
+                    classNames: classNames.join(','),
+                    totalTests: 0,
+                    successCount: 0,
+                    failedCount: 0,
+                    skippedCount: 0,
+                    totalDurationMillis: 0
+                };
+
+                // 기존 캐시가 있으면 앞에 추가, 없으면 새 배열 생성
+                if (executionListCache) {
+                    executionListCache = [tempExecution, ...executionListCache];
+                } else {
+                    executionListCache = [tempExecution];
+                }
+
+                // 즉시 화면 렌더링 및 전환
+                renderExecutionListView(executionListCache);
                 switchView('test-results');
+
+                // 새로 추가된 실행 선택
+                selectExecution(result.executionId);
             } else {
                 alert('Test execution failed: ' + result.message);
             }
@@ -287,19 +316,296 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /* ===== 테스트 결과 로드 ===== */
+    /* ===== 테스트 실행 이력 로드 (게시판 형태) ===== */
     async function loadTestResults() {
         try {
-            const response = await fetch('/api/tests/results');
+            const response = await fetch('/api/tests/executions?limit=50');
+            const executions = await response.json();
+            executionListCache = executions;
+
+            renderExecutionListView(executions);
+        } catch (error) {
+            console.error('Failed to load execution list:', error);
+            testResultsContent.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">X</div>
+                    <p>Failed to load test results</p>
+                </div>
+            `;
+        }
+    }
+
+    // 필터 상태
+    let filterState = {
+        date: '',
+        ip: '',
+        className: '',
+        status: ''
+    };
+
+    // 서버 시간 기준 오늘 날짜 (API에서 받아옴)
+    let serverToday = null;
+
+    async function fetchServerToday() {
+        if (serverToday) return serverToday;
+        try {
+            const response = await fetch('/api/tests/server-time');
+            const data = await response.json();
+            serverToday = data.today;
+            return serverToday;
+        } catch (error) {
+            console.error('Failed to fetch server time:', error);
+            return new Date().toISOString().split('T')[0];
+        }
+    }
+
+    function renderExecutionListView(executions) {
+        const filteredExecutions = applyFilters(executions);
+
+        const listItemsHtml = filteredExecutions.length > 0
+            ? filteredExecutions.map(exec => renderExecutionItem(exec)).join('')
+            : `<div class="execution-list-empty">
+                   <div class="execution-list-empty-icon">📋</div>
+                   <p>No test executions found</p>
+               </div>`;
+
+        testResultsContent.innerHTML = `
+            <div class="result-filters">
+                <div class="filter-group">
+                    <label class="filter-label">실행 날짜</label>
+                    <div class="filter-date-wrapper">
+                        <input type="date" class="filter-date" id="filterDate" value="${filterState.date}" lang="ko">
+                        <div class="today-checkbox-wrapper">
+                            <input type="checkbox" id="filterToday" ${filterState.date && serverToday && filterState.date === serverToday ? 'checked' : ''}>
+                            <label for="filterToday">오늘</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">요청 IP</label>
+                    <input type="text" class="filter-input" id="filterIp" placeholder="IP 주소" value="${filterState.ip}">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">클래스명</label>
+                    <input type="text" class="filter-input" id="filterClassName" placeholder="클래스명 검색" value="${filterState.className}">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">상태</label>
+                    <select class="filter-select" id="filterStatus">
+                        <option value="">전체</option>
+                        <option value="RUNNING" ${filterState.status === 'RUNNING' ? 'selected' : ''}>수행중</option>
+                        <option value="SUCCESS" ${filterState.status === 'SUCCESS' ? 'selected' : ''}>정상</option>
+                        <option value="FAILED" ${filterState.status === 'FAILED' ? 'selected' : ''}>실패</option>
+                    </select>
+                </div>
+                <button class="filter-search-btn" id="filterSearchBtn">검색</button>
+                <button class="filter-clear-btn" id="filterClearBtn">초기화</button>
+            </div>
+            <div class="execution-list-container">
+                <div class="execution-list-panel">
+                    <div class="execution-list-header">
+                        <span>History (${filteredExecutions.length})</span>
+                        <button class="execution-refresh-btn" id="executionRefreshBtn" title="새로고침">↻</button>
+                    </div>
+                    <div class="execution-list" id="executionList">
+                        ${listItemsHtml}
+                    </div>
+                </div>
+                <div class="execution-detail-panel" id="executionDetailPanel">
+                    <div class="execution-detail-header">Details</div>
+                    <div class="execution-detail-body">
+                        <div class="execution-detail-empty">
+                            <div class="execution-detail-empty-icon">👈</div>
+                            <p>Select an execution to view details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 필터 이벤트 바인딩
+        bindFilterEvents();
+
+        // 실행 항목 클릭 이벤트
+        document.querySelectorAll('.execution-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const executionId = item.dataset.executionId;
+                selectExecution(executionId);
+            });
+        });
+
+        // 가장 최근 실행 자동 선택
+        if (filteredExecutions.length > 0) {
+            selectExecution(filteredExecutions[0].executionId);
+        }
+    }
+
+    function bindFilterEvents() {
+        const filterDate = document.getElementById('filterDate');
+        const filterToday = document.getElementById('filterToday');
+        const filterIp = document.getElementById('filterIp');
+        const filterClassName = document.getElementById('filterClassName');
+        const filterStatus = document.getElementById('filterStatus');
+        const filterSearchBtn = document.getElementById('filterSearchBtn');
+        const filterClearBtn = document.getElementById('filterClearBtn');
+        const executionRefreshBtn = document.getElementById('executionRefreshBtn');
+
+        // 날짜 필터 값 변경 시 (검색은 안함, 값만 업데이트)
+        filterDate.addEventListener('change', () => {
+            filterToday.checked = serverToday && filterDate.value === serverToday;
+        });
+
+        // 오늘 체크박스
+        filterToday.addEventListener('change', async () => {
+            if (filterToday.checked) {
+                const today = await fetchServerToday();
+                filterDate.value = today;
+            } else {
+                filterDate.value = '';
+            }
+        });
+
+        // 검색 버튼 - 필터 적용
+        filterSearchBtn.addEventListener('click', () => {
+            filterState.date = filterDate.value;
+            filterState.ip = filterIp.value;
+            filterState.className = filterClassName.value;
+            filterState.status = filterStatus.value;
+            renderExecutionListView(executionListCache);
+        });
+
+        // Enter 키로 검색
+        [filterDate, filterIp, filterClassName].forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    filterSearchBtn.click();
+                }
+            });
+        });
+
+        // 초기화 버튼
+        filterClearBtn.addEventListener('click', () => {
+            filterState = { date: '', ip: '', className: '', status: '' };
+            renderExecutionListView(executionListCache);
+        });
+
+        // 새로고침 버튼
+        executionRefreshBtn.addEventListener('click', async () => {
+            executionRefreshBtn.classList.add('loading');
+            executionListCache = null;
+            await loadTestResults();
+            executionRefreshBtn.classList.remove('loading');
+        });
+    }
+
+    function applyFilters(executions) {
+        return executions.filter(exec => {
+            // 날짜 필터
+            if (filterState.date) {
+                const execDate = exec.startedAt ? exec.startedAt.split('T')[0] : '';
+                if (execDate !== filterState.date) return false;
+            }
+
+            // IP 필터
+            if (filterState.ip) {
+                const ip = exec.requesterIp || '';
+                if (!ip.toLowerCase().includes(filterState.ip.toLowerCase())) return false;
+            }
+
+            // 클래스명 필터
+            if (filterState.className) {
+                const classNames = exec.classNames || '';
+                if (!classNames.toLowerCase().includes(filterState.className.toLowerCase())) return false;
+            }
+
+            // 상태 필터
+            if (filterState.status) {
+                if (filterState.status === 'RUNNING') {
+                    if (exec.status !== 'RUNNING') return false;
+                } else if (filterState.status === 'SUCCESS') {
+                    if (exec.status === 'RUNNING' || exec.failedCount > 0) return false;
+                } else if (filterState.status === 'FAILED') {
+                    if (exec.status === 'RUNNING' || exec.failedCount === 0) return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    function renderExecutionItem(exec) {
+        const isRunning = exec.status === 'RUNNING';
+        const statusClass = isRunning ? 'running' :
+                           exec.failedCount > 0 ? 'failed' :
+                           exec.skippedCount > 0 ? 'partial' : 'success';
+        const dateStr = formatDateTime(exec.startedAt);
+        const itemClass = isRunning ? 'execution-item running' : 'execution-item';
+
+        const statsText = isRunning
+            ? '수행중...'
+            : `${exec.successCount} passed, ${exec.failedCount} failed, ${exec.skippedCount} skipped`;
+        const durationText = isRunning ? '' : `${exec.totalDurationMillis}ms`;
+
+        return `
+            <div class="${itemClass}" data-execution-id="${exec.executionId}">
+                <div class="execution-item-status ${statusClass}"></div>
+                <div class="execution-item-info">
+                    <div class="execution-item-time">${dateStr}</div>
+                    <div class="execution-item-stats">${statsText}</div>
+                </div>
+                <div class="execution-item-duration">${durationText}</div>
+            </div>
+        `;
+    }
+
+    function formatDateTime(dateTimeStr) {
+        if (!dateTimeStr) return '-';
+        const dt = new Date(dateTimeStr);
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const hours = String(dt.getHours()).padStart(2, '0');
+        const minutes = String(dt.getMinutes()).padStart(2, '0');
+        const seconds = String(dt.getSeconds()).padStart(2, '0');
+        return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    async function selectExecution(executionId) {
+        selectedExecutionId = executionId;
+
+        // 선택 상태 업데이트
+        document.querySelectorAll('.execution-item').forEach(item => {
+            if (item.dataset.executionId === executionId) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+
+        const detailBody = document.querySelector('#executionDetailPanel .execution-detail-body');
+        if (!detailBody) return;
+
+        detailBody.innerHTML = `
+            <div class="execution-detail-empty">
+                <div class="execution-detail-empty-icon">⏳</div>
+                <p>Loading...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`/api/tests/executions/${executionId}/results`);
             const data = await response.json();
 
             const summary = data.summary;
             const results = data.results;
 
-            const resultsHtml = results.map(result => renderTestResult(result)).join('');
+            // JUnit Jupiter 필터링하고 테스트 클래스만 추출
+            const testClasses = filterAndGroupByClass(results);
+            const classSummaries = calculateClassSummaries(testClasses);
+            const classResultsHtml = renderClassResults(testClasses);
+            const classSummaryHtml = renderClassSummaries(classSummaries);
 
-            currentTestResultsCache = `
-                <div class="class-detail">
+            detailBody.innerHTML = `
+                <div class="execution-detail-content">
                     <div class="test-summary">
                         <div class="summary-item">
                             <span class="summary-value">${summary.total}</span>
@@ -322,26 +628,156 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="summary-label">Duration</span>
                         </div>
                     </div>
-                    <ul class="result-tree">
-                        ${resultsHtml}
-                    </ul>
+                    ${classSummaryHtml}
+                    <div class="class-results">
+                        ${classResultsHtml}
+                    </div>
                 </div>
             `;
 
-            testResultsContent.innerHTML = currentTestResultsCache;
+            // 클래스 접기/펼치기 이벤트 바인딩
+            bindClassToggleEvents();
         } catch (error) {
-            console.error('Failed to load test results:', error);
-            currentTestResultsCache = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">X</div>
-                    <p>Failed to load test results</p>
+            console.error('Failed to load execution results:', error);
+            detailBody.innerHTML = `
+                <div class="execution-detail-empty">
+                    <div class="execution-detail-empty-icon">X</div>
+                    <p>Failed to load results</p>
                 </div>
             `;
-            testResultsContent.innerHTML = currentTestResultsCache;
         }
     }
 
+    // JUnit Jupiter 필터링하고 테스트 클래스별로 그룹화
+    function filterAndGroupByClass(results) {
+        const classes = [];
+
+        for (const result of results) {
+            // JUnit Jupiter 엔진 레벨 스킵
+            if (result.displayName === 'JUnit Jupiter') {
+                // 그 안의 테스트 클래스들을 바로 추출
+                if (result.children && result.children.length > 0) {
+                    for (const child of result.children) {
+                        classes.push(child);
+                    }
+                }
+            } else {
+                // JUnit Jupiter가 아닌 경우 그대로 추가
+                classes.push(result);
+            }
+        }
+
+        return classes;
+    }
+
+    // 클래스별 요약 정보 계산
+    function calculateClassSummaries(testClasses) {
+        return testClasses.map(testClass => {
+            const stats = { success: 0, failed: 0, skipped: 0, total: 0 };
+            countTestResults(testClass, stats);
+            return {
+                name: testClass.displayName,
+                ...stats
+            };
+        });
+    }
+
+    function countTestResults(result, stats) {
+        if (result.children && result.children.length > 0) {
+            for (const child of result.children) {
+                countTestResults(child, stats);
+            }
+        } else {
+            // 리프 노드 (실제 테스트)
+            stats.total++;
+            if (result.status === 'SUCCESS') stats.success++;
+            else if (result.status === 'FAILED') stats.failed++;
+            else if (result.status === 'SKIPPED') stats.skipped++;
+        }
+    }
+
+    // 클래스별 요약 정보 렌더링
+    function renderClassSummaries(summaries) {
+        if (summaries.length === 0) return '';
+
+        const items = summaries.map(s => {
+            const statsHtml = [];
+            if (s.success > 0) statsHtml.push(`<span class="class-summary-stat success">${s.success} passed</span>`);
+            if (s.failed > 0) statsHtml.push(`<span class="class-summary-stat failed">${s.failed} failed</span>`);
+            if (s.skipped > 0) statsHtml.push(`<span class="class-summary-stat skipped">${s.skipped} skipped</span>`);
+
+            return `
+                <div class="class-summary-item">
+                    <span class="class-summary-name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>
+                    <div class="class-summary-stats">${statsHtml.join('')}</div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="class-summaries">
+                <div class="class-summaries-title">클래스별 요약</div>
+                <div class="class-summary-list">${items}</div>
+            </div>
+        `;
+    }
+
+    // 클래스별 결과 렌더링
+    function renderClassResults(testClasses) {
+        return testClasses.map((testClass, index) => {
+            const stats = { success: 0, failed: 0, skipped: 0, total: 0 };
+            countTestResults(testClass, stats);
+
+            const hasFailure = stats.failed > 0;
+            const resultsHtml = renderTestResultsFlat(testClass.children || []);
+
+            return `
+                <div class="class-result-group" data-class-index="${index}">
+                    <div class="class-result-header">
+                        <div class="class-result-header-left">
+                            <span class="class-result-toggle">▶</span>
+                            <span class="class-result-name">${escapeHtml(testClass.displayName)}</span>
+                        </div>
+                        <div class="class-result-stats">
+                            <span class="class-stat success">✓ ${stats.success}</span>
+                            <span class="class-stat failed">✗ ${stats.failed}</span>
+                            <span class="class-stat skipped">⊘ ${stats.skipped}</span>
+                        </div>
+                    </div>
+                    <div class="class-result-body collapsed">
+                        <ul class="result-tree">${resultsHtml}</ul>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 테스트 결과를 평면적으로 렌더링 (Nested 포함, 전부 펼쳐진 상태)
+    function renderTestResultsFlat(results) {
+        return results.map(result => renderTestResult(result)).join('');
+    }
+
+    // 클래스 접기/펼치기 이벤트 바인딩
+    function bindClassToggleEvents() {
+        document.querySelectorAll('.class-result-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const group = header.closest('.class-result-group');
+                const body = group.querySelector('.class-result-body');
+                const toggle = header.querySelector('.class-result-toggle');
+
+                if (body.classList.contains('collapsed')) {
+                    body.classList.remove('collapsed');
+                    toggle.textContent = '▼';
+                } else {
+                    body.classList.add('collapsed');
+                    toggle.textContent = '▶';
+                }
+            });
+        });
+    }
+
     window.loadTestResults = loadTestResults;
+    window.selectExecution = selectExecution;
     window.switchView = switchView;
 
     function renderTestResult(result) {

@@ -30,6 +30,9 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                     .failedCount(rs.getInt("failed_count"))
                     .skippedCount(rs.getInt("skipped_count"))
                     .totalDurationMillis(rs.getLong("total_duration_millis"))
+                    .requesterIp(rs.getString("requester_ip"))
+                    .classNames(rs.getString("class_names"))
+                    .status(rs.getString("status"))
                     .build();
 
     private final RowMapper<TestResultRecord> resultRowMapper = (rs, rowNum) ->
@@ -50,8 +53,8 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     public void saveExecution(TestExecution execution) {
         String sql = """
                 INSERT INTO bng000a.c_test_execution
-                (execution_id, started_at, finished_at, total_tests, success_count, failed_count, skipped_count, total_duration_millis)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (execution_id, started_at, finished_at, total_tests, success_count, failed_count, skipped_count, total_duration_millis, requester_ip, class_names, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """;
         jdbcTemplate.update(con -> {
             PreparedStatement ps = con.prepareStatement(sql);
@@ -65,6 +68,9 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
             ps.setInt(6, execution.getFailedCount());
             ps.setInt(7, execution.getSkippedCount());
             ps.setLong(8, execution.getTotalDurationMillis());
+            ps.setString(9, execution.getRequesterIp());
+            ps.setString(10, execution.getClassNames());
+            ps.setString(11, execution.getStatus() != null ? execution.getStatus() : "RUNNING");
             return ps;
         });
     }
@@ -73,7 +79,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     public void updateExecution(TestExecution execution) {
         String sql = """
                 UPDATE bng000a.c_test_execution
-                SET finished_at = ?, total_tests = ?, success_count = ?, failed_count = ?, skipped_count = ?, total_duration_millis = ?
+                SET finished_at = ?, total_tests = ?, success_count = ?, failed_count = ?, skipped_count = ?, total_duration_millis = ?, status = ?
                 WHERE execution_id = ?
                 """;
         jdbcTemplate.update(sql,
@@ -83,6 +89,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                 execution.getFailedCount(),
                 execution.getSkippedCount(),
                 execution.getTotalDurationMillis(),
+                execution.getStatus() != null ? execution.getStatus() : "COMPLETED",
                 execution.getExecutionId());
     }
 

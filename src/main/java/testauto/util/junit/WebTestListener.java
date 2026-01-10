@@ -6,14 +6,15 @@ import testauto.domain.TestSummary;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
-import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
+/**
+ * 테스트 실행 리스너 - 각 실행마다 새 인스턴스 생성하여 사용
+ */
 public class WebTestListener implements TestExecutionListener {
 
     // id -> TestResult

@@ -18,4 +18,7 @@ public class TestExecution {
     private int failedCount;
     private int skippedCount;
     private long totalDurationMillis;
+    private String requesterIp;
+    private String classNames;
+    private String status; // RUNNING, COMPLETED
 }

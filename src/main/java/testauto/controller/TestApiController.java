@@ -1,5 +1,6 @@
 package testauto.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +19,8 @@ import testauto.service.TestExecutionService;
 import testauto.service.TestTreeService;
 import testauto.service.SourceCodeService;
 
+import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/tests")
@@ -54,25 +55,37 @@ public class TestApiController {
     }
 
     @PostMapping("/run")
-    public ResponseEntity<TestExecutionResponse> runTests(@Valid @RequestBody TestExecutionRequest request) {
-        String executionId = UUID.randomUUID().toString();
+    public ResponseEntity<TestExecutionResponse> runTests(
+            @Valid @RequestBody TestExecutionRequest request,
+            HttpServletRequest httpRequest) {
+        String requesterIp = getClientIp(httpRequest);
 
-        testExecutionService.runTests(request.getClassNames());
+        // 비동기로 테스트 실행 시작, executionId 즉시 반환
+        String executionId = testExecutionService.submitTests(request.getClassNames(), requesterIp);
 
         return ResponseEntity.ok(TestExecutionResponse.builder()
                 .executionId(executionId)
-                .status("COMPLETED")
-                .message("Tests executed successfully")
+                .status("RUNNING")
+                .message("Test execution started")
                 .build());
     }
 
-    @GetMapping("/results")
-    public ResponseEntity<TestResultsResponse> getTestResults() {
-        TestSummary summary = testExecutionService.getSummary();
-        List<TestResult> results = testExecutionService.getTestTree();
-
-        TestResultsResponse response = new TestResultsResponse(summary, results);
-        return ResponseEntity.ok(response);
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        // 여러 IP가 있을 경우 첫 번째 것만 사용
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        return ip;
     }
 
     @GetMapping("/method/{className}/{methodName}/code")
@@ -86,12 +99,26 @@ public class TestApiController {
 
     public record TestResultsResponse(TestSummary summary, List<TestResult> results) {}
     public record MethodCodeResponse(String code) {}
+    public record ServerTimeResponse(String today) {}
+
+    @GetMapping("/server-time")
+    public ResponseEntity<ServerTimeResponse> getServerTime() {
+        String today = LocalDate.now().toString();
+        return ResponseEntity.ok(new ServerTimeResponse(today));
+    }
 
     @GetMapping("/executions")
     public ResponseEntity<List<TestExecution>> getRecentExecutions(
             @RequestParam(defaultValue = "20") int limit) {
         List<TestExecution> executions = testExecutionService.getRecentExecutions(limit);
         return ResponseEntity.ok(executions);
+    }
+
+    @GetMapping("/executions/{executionId}")
+    public ResponseEntity<TestExecution> getExecution(@PathVariable String executionId) {
+        return testExecutionService.getExecution(executionId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/executions/{executionId}/results")
