@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/tests/class/${encodeURIComponent(className)}`);
             const data = await response.json();
 
-            const methodsHtml = renderMethodItems(data.methods, className);
+            const methodsHtml = renderMethodItems(data.methods);
 
             currentTestInfoCache = `
                 <div class="test-info-panel">
@@ -186,11 +186,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderMethodItems(methods, className) {
+    function renderMethodItems(methods) {
         return methods.map(method => {
             if (method.nestedClass) {
                 const childrenHtml = method.children && method.children.length > 0
-                    ? renderMethodItems(method.children, className)
+                    ? renderMethodItems(method.children)
                     : '';
                 return `
                     <li class="method-item nested-class-item">
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 return `
                     <li class="method-item">
-                        <div class="method-header" onclick="toggleMethodCode('${className}', '${escapeHtml(method.methodName)}', this)">
+                        <div class="method-header" onclick="toggleMethodCode('${escapeHtml(method.uniqueId)}', this)">
                             <span class="method-name">✓ ${escapeHtml(method.displayName)}</span>
                             <span class="method-toggle">▶</span>
                         </div>
@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showClassDetail = showClassDetail;
 
     /* ===== 메서드 코드 토글 ===== */
-    window.toggleMethodCode = async function(className, methodName, headerElement) {
+    window.toggleMethodCode = async function(uniqueId, headerElement) {
         const methodItem = headerElement.parentElement;
         const codeContainer = methodItem.querySelector('.method-code-container');
         const codeElement = codeContainer.querySelector('code');
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!codeElement.textContent) {
             try {
-                const response = await fetch(`/api/tests/method/${encodeURIComponent(className)}/${encodeURIComponent(methodName)}/code`);
+                const response = await fetch(`/api/tests/method/code?uniqueId=${encodeURIComponent(uniqueId)}`);
                 const data = await response.json();
                 codeElement.textContent = data.code;
             } catch (error) {

@@ -88,12 +88,11 @@ public class TestApiController {
         return ip;
     }
 
-    @GetMapping("/method/{className}/{methodName}/code")
+    @GetMapping("/method/code")
     public ResponseEntity<MethodCodeResponse> getMethodCode(
-            @PathVariable @NotBlank(message = "Class name cannot be blank") String className,
-            @PathVariable @NotBlank(message = "Method name cannot be blank") String methodName) {
+            @RequestParam @NotBlank(message = "uniqueId cannot be blank") String uniqueId) {
 
-        String code = sourceCodeService.getMethodSourceCode(className, methodName);
+        String code = sourceCodeService.getMethodSourceCodeByUniqueId(uniqueId);
         return ResponseEntity.ok(new MethodCodeResponse(code));
     }
 

@@ -104,7 +104,9 @@ public class ProcessExecutorService {
         List<String> command = new ArrayList<>();
         command.add(getJavaExecutable());
         command.add("-cp");
-        command.add(buildClasspath());
+        String classpath = buildClasspath();
+        log.info("Built classpath: {}", classpath);
+        command.add(classpath);
         command.add("testauto.runner.TestRunner");
 
         for (String arg : args) {
@@ -176,7 +178,7 @@ public class ProcessExecutorService {
         if (exitCode != 0) {
             log.warn("Process exited with code {}, output: {}", exitCode, output);
         }
-
+        log.info("Runner raw output:\n{}", output);
         return output.toString();
     }
 

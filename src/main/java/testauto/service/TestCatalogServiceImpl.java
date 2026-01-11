@@ -21,7 +21,7 @@ public class TestCatalogServiceImpl implements TestCatalogService {
     private final TestNodeRepository repository;
     private final ProcessExecutorService processExecutorService;
 
-    @Value("${testcode.root-package:testauto.testcode}")
+    @Value("${testcode.root-package}")
     private String testcodeRootPackage;
 
     @Override

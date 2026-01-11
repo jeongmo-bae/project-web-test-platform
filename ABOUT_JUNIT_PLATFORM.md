@@ -15,6 +15,7 @@
 7. [DiscoverySelectors](#discoveryselectors)
 8. [TestExecutionResult](#testexecutionresult)
 9. [이 프로젝트에서의 활용](#이-프로젝트에서의-활용)
+10. [별도 JVM에서 JUnit 실행하기](#별도-jvm에서-junit-실행하기)
 
 ---
 
@@ -905,6 +906,214 @@ launcher.execute(request);  // 리스너에 이벤트 전달됨
 
 List<TestResultDto> results = listener.findRootResults();
 TestSummaryDto summary = listener.buildSummary();
+```
+
+---
+
+## 별도 JVM에서 JUnit 실행하기
+
+### 왜 별도 JVM인가?
+
+이 프로젝트에서는 테스트 코드를 별도 JVM 프로세스에서 실행합니다:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      별도 JVM 실행 아키텍처                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  [메인 Spring Boot 앱]                                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  - 웹 UI 제공                                                    │   │
+│  │  - REST API 처리                                                 │   │
+│  │  - TestRunner 클래스 포함                                        │   │
+│  │  - JUnit Platform 라이브러리 포함                                 │   │
+│  └────────────────────────────────┬────────────────────────────────┘   │
+│                                   │                                     │
+│                                   │ ProcessBuilder.start()              │
+│                                   ▼                                     │
+│  [별도 JVM 프로세스: TestRunner]                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  java -cp {classpath} testauto.runner.TestRunner {mode} {args}   │   │
+│  │                                                                  │   │
+│  │  역할:                                                           │   │
+│  │    - discover: 테스트 발견 → JSON 출력                           │   │
+│  │    - run: 테스트 실행 → JSON 결과 출력                           │   │
+│  │                                                                  │   │
+│  │  장점:                                                           │   │
+│  │    - 테스트 코드 변경 시 메인 앱 재시작 불필요                    │   │
+│  │    - 테스트 실행이 메인 앱에 영향 주지 않음                       │   │
+│  │    - 테스트별 격리된 환경                                        │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 클래스패스 구성의 중요성
+
+별도 JVM을 spawn할 때 가장 중요한 것은 **클래스패스**입니다:
+
+```java
+// ProcessExecutorService.java
+private List<String> buildJavaCommand(String... args) throws Exception {
+    List<String> command = new ArrayList<>();
+    command.add(getJavaExecutable());       // java 실행 파일 경로
+    command.add("-cp");
+    command.add(buildClasspath());           // ★ 핵심: 클래스패스
+    command.add("testauto.runner.TestRunner");  // 메인 클래스
+    // args...
+    return command;
+}
+```
+
+### 클래스패스에 포함되어야 하는 것들
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         필요한 클래스패스 구성                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  1. 메인 앱 클래스패스 (System.getProperty("java.class.path"))          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  포함 내용:                                                      │   │
+│  │    - testauto.runner.TestRunner (메인 클래스)                    │   │
+│  │    - testauto.runner.TestRunnerListener                         │   │
+│  │    - junit-platform-launcher.jar                                │   │
+│  │    - junit-platform-engine.jar                                  │   │
+│  │    - junit-jupiter-engine.jar                                   │   │
+│  │    - junit-jupiter-api.jar                                      │   │
+│  │    - jackson-databind.jar (JSON 직렬화용)                        │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  2. 테스트 코드 컴파일 결과                                              │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  {testcode}/build/classes/java/main/                            │   │
+│  │    - testauto.testcode.unit.SampleTest.class                    │   │
+│  │    - testauto.testcode.e2e.EbmTest.class                        │   │
+│  │    - ...                                                         │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  3. 테스트 코드 전용 의존성 (필요 시)                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │  {testcode}/build/dependencies/                                 │   │
+│  │    - 메인 앱에 없는 추가 라이브러리들                            │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 구현 코드
+
+```java
+private String buildClasspath() throws Exception {
+    List<String> paths = new ArrayList<>();
+
+    // 1. 현재 애플리케이션의 classpath
+    //    → TestRunner, JUnit Platform, Jackson 등 모두 포함
+    String currentClasspath = System.getProperty("java.class.path");
+    paths.add(currentClasspath);
+
+    // 2. 테스트 코드 프로젝트의 컴파일된 클래스
+    //    → ./gradlew compileJava 실행 후 생성됨
+    Path testClassesPath = Path.of(testcodeProjectPath,
+        "build", "classes", "java", "main");
+    if (Files.exists(testClassesPath)) {
+        paths.add(testClassesPath.toString());
+    }
+
+    // 3. 테스트 코드 프로젝트의 의존성 JAR
+    //    → copyDependencies 태스크로 복사됨 (선택적)
+    Path dependenciesPath = Path.of(testcodeProjectPath, "build", "dependencies");
+    if (Files.exists(dependenciesPath)) {
+        Files.walk(dependenciesPath)
+            .filter(p -> p.toString().endsWith(".jar"))
+            .forEach(p -> paths.add(p.toString()));
+    }
+
+    // OS별 구분자 (Unix: ":", Windows: ";")
+    String separator = isWindows() ? ";" : ":";
+    return paths.stream()
+        .filter(p -> !p.isBlank())
+        .collect(Collectors.joining(separator));
+}
+```
+
+### JSON 마커 기반 결과 파싱
+
+별도 JVM과 통신은 **stdout**으로 합니다. 테스트 중 발생하는 로그와 결과 JSON을 구분하기 위해 마커를 사용:
+
+```java
+// TestRunner.java
+private static final String RESULT_MARKER = "###TEST_RUNNER_RESULT###";
+
+private static void printResult(Object result) throws Exception {
+    System.out.println(RESULT_MARKER);  // 마커 출력
+    System.out.println(objectMapper.writeValueAsString(result));  // JSON 출력
+}
+```
+
+```java
+// ProcessExecutorService.java
+private <T> T parseResult(String output, Class<T> resultClass) throws Exception {
+    // 마커 위치 찾기
+    int markerIndex = output.indexOf(RESULT_MARKER);
+    if (markerIndex == -1) {
+        throw new RuntimeException("Failed to parse test result: marker not found");
+    }
+
+    // 마커 이후의 JSON 추출
+    String jsonPart = output.substring(markerIndex + RESULT_MARKER.length()).trim();
+    return objectMapper.readValue(jsonPart, resultClass);
+}
+```
+
+출력 예시:
+```
+[beforeAll] SampleTest
+[beforeEach]
+successTest run
+[afterEach]
+###TEST_RUNNER_RESULT###
+{"success":true,"summary":{"total":3,"success":2,"failed":1},"results":[...]}
+```
+
+### 트러블슈팅
+
+#### ClassNotFoundException: testauto.runner.TestRunner
+
+**원인**: 메인 앱 클래스패스가 전달되지 않음
+
+**해결**:
+```java
+// ❌ 잘못된 방법 - 클래스패스 없음
+command.add("testauto.runner.TestRunner");
+
+// ✅ 올바른 방법 - 클래스패스 명시
+command.add("-cp");
+command.add(System.getProperty("java.class.path"));  // 메인 앱 클래스패스
+command.add("testauto.runner.TestRunner");
+```
+
+#### NoClassDefFoundError: org/junit/platform/launcher/Launcher
+
+**원인**: JUnit Platform 라이브러리가 클래스패스에 없음
+
+**해결**: 메인 앱 `build.gradle.kts`에 JUnit 의존성 추가
+```kotlin
+dependencies {
+    implementation("org.junit.platform:junit-platform-launcher")
+    implementation("org.junit.jupiter:junit-jupiter-engine")
+}
+```
+
+#### ClassNotFoundException: 테스트 클래스
+
+**원인**: 테스트 코드 컴파일 결과가 클래스패스에 없음
+
+**해결**: 컴파일된 클래스 경로 추가
+```java
+Path testClassesPath = Path.of(testcodeProjectPath,
+    "build", "classes", "java", "main");
+paths.add(testClassesPath.toString());
 ```
 
 ---

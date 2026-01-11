@@ -59,6 +59,8 @@ public class TestRunner {
      * 테스트 발견 모드
      */
     private static void runDiscover(String rootPackage) throws Exception {
+        System.err.println("[DEBUG] Starting discovery for package: " + rootPackage);
+
         Launcher launcher = LauncherFactory.create();
 
         LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
@@ -66,6 +68,12 @@ public class TestRunner {
                 .build();
 
         TestPlan testPlan = launcher.discover(request);
+
+        System.err.println("[DEBUG] TestPlan roots count: " + testPlan.getRoots().size());
+        for (TestIdentifier root : testPlan.getRoots()) {
+            System.err.println("[DEBUG] Root: " + root.getUniqueId() + " / " + root.getDisplayName());
+            System.err.println("[DEBUG] Children count: " + testPlan.getChildren(root).size());
+        }
 
         List<TestNodeDto> nodes = new ArrayList<>();
         for (TestIdentifier root : testPlan.getRoots()) {
@@ -117,11 +125,10 @@ public class TestRunner {
 
         String nodeType = testIdentifier.isContainer() ? "CONTAINER" : "TEST";
 
-        // 엔진 루트는 제외
-        if (!uniqueId.contains("[engine:")) {
+        // 엔진 루트만 제외 (예: [engine:junit-jupiter])
+        boolean isEngineRoot = uniqueId.startsWith("[engine:") && !uniqueId.contains("/");
+        if (!isEngineRoot) {
             nodes.add(new TestNodeDto(uniqueId, parentId, displayName, className, nodeType));
-        } else if (uniqueId.equals("[engine:junit-jupiter]")) {
-            // JUnit Jupiter 엔진 루트도 제외하지만 자식은 포함
         }
 
         for (TestIdentifier child : testPlan.getChildren(testIdentifier)) {
