@@ -6,13 +6,8 @@ import testauto.repository.TestExecutionRepository;
 import testauto.domain.TestExecution;
 import testauto.domain.TestResult;
 import testauto.domain.TestResultRecord;
-import testauto.domain.TestSummary;
-import testauto.util.junit.WebTestListener;
-import org.junit.platform.engine.DiscoverySelector;
-import org.junit.platform.engine.discovery.DiscoverySelectors;
-import org.junit.platform.launcher.*;
-import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
-import org.junit.platform.launcher.core.LauncherFactory;
+import testauto.domain.TestStatus;
+import testauto.runner.TestRunner;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +20,7 @@ import java.util.*;
 public class TestExecutionServiceImpl implements TestExecutionService {
 
     private final TestExecutionRepository executionRepository;
+    private final ProcessExecutorService processExecutorService;
 
     /**
      * 테스트 실행 요청 (비동기) - executionId 즉시 반환
@@ -57,40 +53,28 @@ public class TestExecutionServiceImpl implements TestExecutionService {
     }
 
     /**
-     * 테스트 실제 실행 (비동기)
+     * 테스트 실제 실행 (비동기) - 별도 JVM에서 실행
      */
     @Async
     public void executeTestsAsync(String executionId, List<String> classNames) {
         log.info("Starting async test execution {} for {} classes", executionId, classNames.size());
         log.debug("Classes to execute: {}", classNames);
 
-        // 각 실행마다 새로운 리스너 생성
-        WebTestListener listener = new WebTestListener();
-
         try {
-            Launcher launcher = LauncherFactory.create();
-            launcher.registerTestExecutionListeners(listener);
+            // 1. 테스트 코드 컴파일
+            processExecutorService.compileTestCode();
 
-            List<DiscoverySelector> selectors = classNames.stream()
-                    .<DiscoverySelector>map(className -> {
-                        try {
-                            return DiscoverySelectors.selectClass(className);
-                        } catch (Exception e) {
-                            log.warn("Failed to select class: {}", className, e);
-                            throw new RuntimeException("Invalid class name: " + className, e);
-                        }
-                    })
-                    .toList();
+            // 2. 별도 JVM에서 테스트 실행
+            TestRunner.RunResult runResult = processExecutorService.runTests(classNames);
 
-            LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                    .selectors(selectors)
-                    .build();
+            if (!runResult.success()) {
+                throw new RuntimeException("Test execution failed: " + runResult.error());
+            }
 
-            launcher.execute(request);
             log.info("Test execution {} completed for {} classes", executionId, classNames.size());
 
-            // 실행 완료 후 DB에 결과 저장
-            saveResultsToDb(executionId, listener);
+            // 3. 실행 완료 후 DB에 결과 저장
+            saveResultsToDb(executionId, runResult);
 
         } catch (Exception e) {
             log.error("Failed to execute tests for execution {}: {}", executionId, e.getMessage(), e);
@@ -112,29 +96,28 @@ public class TestExecutionServiceImpl implements TestExecutionService {
     /**
      * 테스트 결과를 DB에 저장
      */
-    private void saveResultsToDb(String executionId, WebTestListener listener) {
+    private void saveResultsToDb(String executionId, TestRunner.RunResult runResult) {
         try {
-            TestSummary summary = listener.buildSummary();
-            List<TestResult> results = listener.findRootResults();
+            TestRunner.TestSummaryDto summary = runResult.summary();
 
             // 실행 정보 업데이트
             TestExecution execution = TestExecution.builder()
                     .executionId(executionId)
                     .finishedAt(LocalDateTime.now())
-                    .totalTests(summary.getTotal())
-                    .successCount(summary.getSuccess())
-                    .failedCount(summary.getFailed())
-                    .skippedCount(summary.getSkipped())
-                    .totalDurationMillis(summary.getTotalDurationMillis())
+                    .totalTests(summary.total())
+                    .successCount(summary.success())
+                    .failedCount(summary.failed())
+                    .skippedCount(summary.skipped())
+                    .totalDurationMillis(summary.totalDurationMillis())
                     .status("COMPLETED")
                     .build();
 
             executionRepository.updateExecution(execution);
 
-            // 결과 상세 저장
+            // 결과 상세 저장 (DTO를 도메인 객체로 변환)
             List<TestResultRecord> records = new ArrayList<>();
-            for (TestResult result : results) {
-                collectResultRecords(executionId, result, null, records);
+            for (TestRunner.TestResultDto resultDto : runResult.results()) {
+                collectResultRecords(executionId, resultDto, null, records);
             }
             executionRepository.saveAllResults(records);
 
@@ -145,26 +128,39 @@ public class TestExecutionServiceImpl implements TestExecutionService {
     }
 
     /**
-     * TestResult 트리를 TestResultRecord 리스트로 변환
+     * TestResultDto 트리를 TestResultRecord 리스트로 변환
      */
-    private void collectResultRecords(String executionId, TestResult result,
+    private void collectResultRecords(String executionId, TestRunner.TestResultDto resultDto,
                                        String parentId, List<TestResultRecord> records) {
+        TestStatus status = parseStatus(resultDto.status());
+
         TestResultRecord record = TestResultRecord.builder()
                 .executionId(executionId)
-                .testId(result.getId())
+                .testId(resultDto.id())
                 .parentTestId(parentId)
-                .displayName(result.getDisplayName())
-                .status(result.getStatus())
-                .durationMillis(result.getDurationMillis())
-                .errorMessage(result.getErrorMessage())
-                .stackTrace(result.getStackTrace())
-                .stdout(result.getStdout())
+                .displayName(resultDto.displayName())
+                .status(status)
+                .durationMillis(resultDto.durationMillis())
+                .errorMessage(resultDto.errorMessage())
+                .stackTrace(resultDto.stackTrace())
+                .stdout(resultDto.stdout())
                 .build();
         records.add(record);
 
-        for (TestResult child : result.getChildren()) {
-            collectResultRecords(executionId, child, result.getId(), records);
+        for (TestRunner.TestResultDto child : resultDto.children()) {
+            collectResultRecords(executionId, child, resultDto.id(), records);
         }
+    }
+
+    private TestStatus parseStatus(String status) {
+        if (status == null) return TestStatus.SKIPPED;
+        return switch (status) {
+            case "SUCCESS" -> TestStatus.SUCCESS;
+            case "FAILED" -> TestStatus.FAILED;
+            case "SKIPPED" -> TestStatus.SKIPPED;
+            case "RUNNING" -> TestStatus.RUNNING;
+            default -> TestStatus.SKIPPED;
+        };
     }
 
     /**

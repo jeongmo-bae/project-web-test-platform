@@ -25,6 +25,10 @@ spring:
 server:
   port: 9898
 
+testcode:
+  project-path: ${TESTCODE_PROJECT_PATH:/opt/testcodes}
+  root-package: ${TESTCODE_ROOT_PACKAGE:testauto.testcode}
+
 logging:
   level:
     org.springframework.jdbc.core: debug

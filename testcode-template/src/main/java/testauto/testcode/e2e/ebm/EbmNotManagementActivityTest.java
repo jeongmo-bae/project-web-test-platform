@@ -45,17 +45,16 @@ public class EbmNotManagementActivityTest {
         @AfterAll
         @DisplayName("Test Data Rollback")
         public static void afterAll() {
-//            Assertions.assertThat(1).isEqualTo(6);
             System.out.println("AftertAll - Test Data Rollback");
         }
     }
+
     @Nested
     @DisplayName("관리활동이 아닌, 본부 EBM 선호시간 미활용 캠페인 테스트")
     public class EBMNotManagementActivityUserDefinedTimeTest {
         @Test
         @DisplayName("수행 고객군 정상 생성 테스트")
-        void test1() throws InterruptedException {
-            Thread.sleep(100000);
+        void test1() {
             Assertions.assertThat(1).isEqualTo(1);
         }
         @Test
@@ -83,7 +82,6 @@ public class EbmNotManagementActivityTest {
         @AfterAll
         @DisplayName("Test Data Rollback")
         public static void afterAll() {
-//            Assertions.assertThat(1).isEqualTo(6);
             System.out.println("AftertAll - Test Data Rollback");
         }
     }

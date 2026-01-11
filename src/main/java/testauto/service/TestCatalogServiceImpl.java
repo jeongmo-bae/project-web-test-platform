@@ -1,114 +1,100 @@
 package testauto.service;
 
-import lombok.extern.slf4j.Slf4j;
-import org.junit.platform.engine.UniqueId;
-import org.junit.platform.engine.discovery.DiscoverySelectors;
-import org.junit.platform.engine.support.descriptor.ClassSource;
-import org.junit.platform.engine.support.descriptor.MethodSource;
-import org.junit.platform.launcher.LauncherDiscoveryRequest;
-import org.junit.platform.launcher.TestIdentifier;
-import org.junit.platform.launcher.TestPlan;
-import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
-import org.junit.platform.launcher.core.LauncherFactory;
-
 import lombok.RequiredArgsConstructor;
-
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import testauto.domain.TestNode;
 import testauto.dto.ClassDetailDto;
 import testauto.dto.TestMethodDto;
 import testauto.repository.TestNodeRepository;
+import testauto.runner.TestRunner;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TestCatalogServiceImpl implements TestCatalogService {
+
     private final TestNodeRepository repository;
-    private final String TESTCODE_ROOT_PACKAGE = "testauto.testcode";
+    private final ProcessExecutorService processExecutorService;
+
+    @Value("${testcode.root-package:testauto.testcode}")
+    private String testcodeRootPackage;
 
     @Override
     public void refreshTestCatalog() {
-        repository.deleteAll();
-        List<TestNode> testNodeList = discoverAllTests();
-        repository.saveAll(testNodeList);
+        try {
+            // 1. 테스트 코드 컴파일
+            processExecutorService.compileTestCode();
+
+            // 2. 별도 JVM에서 테스트 발견
+            TestRunner.DiscoverResult result = processExecutorService.discoverTests(testcodeRootPackage);
+
+            if (!result.success()) {
+                throw new RuntimeException("Test discovery failed: " + result.error());
+            }
+
+            // 3. 결과를 TestNode로 변환하여 DB 저장
+            repository.deleteAll();
+            List<TestNode> testNodes = result.nodes().stream()
+                    .map(dto -> TestNode.builder()
+                            .uniqueId(dto.uniqueId())
+                            .parentUniqueId(dto.parentUniqueId())
+                            .displayName(dto.displayName())
+                            .className(dto.className())
+                            .type(dto.type())
+                            .build())
+                    .collect(Collectors.toList());
+            repository.saveAll(testNodes);
+
+            log.info("Test catalog refreshed: {} nodes discovered", testNodes.size());
+
+        } catch (Exception e) {
+            log.error("Failed to refresh test catalog", e);
+            throw new RuntimeException("Failed to refresh test catalog: " + e.getMessage(), e);
+        }
     }
 
     @Override
     public List<TestNode> discoverAllTests() {
-        List<TestNode> testNodes = new ArrayList<>();
-
-        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder
-                .request()
-                .selectors(
-                        DiscoverySelectors.selectPackage(TESTCODE_ROOT_PACKAGE)
-                )
-                .build();
-        TestPlan testPlan = LauncherFactory.create().discover(request);
-        Set<TestIdentifier> roots = testPlan.getRoots();
-        for (TestIdentifier root : roots) {
-            collectNodes(testPlan, root, testNodes);
-        }
-        return testNodes;
-    }
-
-    private void collectNodes(TestPlan testPlan, TestIdentifier testIdentifier, List<TestNode> testNodes) {
-        String uniqueId = testIdentifier.getUniqueId();
-        String parentId = testIdentifier.getParentId().orElse(null);
-        String displayName = testIdentifier.getDisplayName();
-        ClassSource classSource = getNodeClassSource(testIdentifier);
-        String nodeType = getNodeType(testIdentifier);
-
-        TestNode testNode = TestNode.builder()
-                .uniqueId(uniqueId)
-                .parentUniqueId(parentId)
-                .displayName(displayName)
-                .className(classSource != null ? classSource.getClassName() : null)
-                .type(nodeType)
-                .build();
-        testNodes.add(testNode);
-
-        Set<TestIdentifier> children = testPlan.getChildren(testIdentifier);
-        for (TestIdentifier child : children){
-            collectNodes(testPlan, child, testNodes);
-        }
-    }
-
-    private ClassSource getNodeClassSource(TestIdentifier testIdentifier) {
-        return testIdentifier.getSource()
-                .filter(ClassSource.class::isInstance)
-                .map(ClassSource.class::cast)
-                .orElse(null);
-    }
-
-    private String getNodeType(TestIdentifier testIdentifier){
-        return switch (testIdentifier.getType()){
-            case CONTAINER -> "CONTAINER";
-            case TEST -> "TEST";
-            default -> "UNKNOWN";
-        };
+        return repository.findAll();
     }
 
     @Override
     public ClassDetailDto getClassDetail(String className) {
-        LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder
-                .request()
-                .selectors(DiscoverySelectors.selectClass(className))
-                .build();
+        // DB에서 해당 클래스의 테스트 노드들을 가져와서 트리 구조로 변환
+        List<TestNode> allNodes = repository.findAll();
 
-        TestPlan testPlan = LauncherFactory.create().discover(request);
+        // 해당 클래스의 루트 노드 찾기
+        TestNode classNode = allNodes.stream()
+                .filter(node -> className.equals(node.getClassName()) && "CONTAINER".equals(node.getType()))
+                .filter(node -> !node.getUniqueId().contains("[nested-class:"))
+                .findFirst()
+                .orElse(null);
 
-        List<TestMethodDto> methods = new ArrayList<>();
-        Set<TestIdentifier> roots = testPlan.getRoots();
-
-        for (TestIdentifier root : roots) {
-            methods.addAll(collectMethodsHierarchical(testPlan, root));
+        if (classNode == null) {
+            String simpleClassName = className.substring(className.lastIndexOf('.') + 1);
+            return ClassDetailDto.builder()
+                    .className(simpleClassName)
+                    .fullClassName(className)
+                    .methods(List.of())
+                    .build();
         }
+
+        // uniqueId -> TestNode 맵 생성
+        Map<String, TestNode> nodeMap = allNodes.stream()
+                .collect(Collectors.toMap(TestNode::getUniqueId, n -> n));
+
+        // parentId -> children 맵 생성
+        Map<String, List<TestNode>> childrenMap = allNodes.stream()
+                .filter(n -> n.getParentUniqueId() != null)
+                .collect(Collectors.groupingBy(TestNode::getParentUniqueId));
+
+        // 클래스 노드의 자식들을 TestMethodDto로 변환
+        List<TestMethodDto> methods = buildMethodsHierarchy(classNode.getUniqueId(), childrenMap);
 
         String simpleClassName = className.substring(className.lastIndexOf('.') + 1);
 
@@ -119,21 +105,26 @@ public class TestCatalogServiceImpl implements TestCatalogService {
                 .build();
     }
 
-    private List<TestMethodDto> collectMethodsHierarchical(TestPlan testPlan, TestIdentifier identifier) {
+    private List<TestMethodDto> buildMethodsHierarchy(String parentId, Map<String, List<TestNode>> childrenMap) {
+        List<TestNode> children = childrenMap.getOrDefault(parentId, List.of());
         List<TestMethodDto> result = new ArrayList<>();
 
-        Set<TestIdentifier> children = testPlan.getChildren(identifier);
-        for (TestIdentifier child : children) {
-            if (child.isTest()) {
-                String methodName = extractMethodName(child);
+        for (TestNode child : children) {
+            boolean isNestedClass = child.getUniqueId().contains("[nested-class:");
+            boolean isTest = "TEST".equals(child.getType());
+
+            if (isTest) {
+                // 테스트 메서드
+                String methodName = extractMethodNameFromUniqueId(child.getUniqueId());
                 result.add(TestMethodDto.builder()
                         .methodName(methodName)
                         .displayName(child.getDisplayName())
                         .uniqueId(child.getUniqueId())
                         .isNestedClass(false)
                         .build());
-            } else if (child.isContainer() && isNestedClass(child)) {
-                List<TestMethodDto> nestedMethods = collectMethodsHierarchical(testPlan, child);
+            } else if (isNestedClass) {
+                // Nested 클래스
+                List<TestMethodDto> nestedMethods = buildMethodsHierarchy(child.getUniqueId(), childrenMap);
                 result.add(TestMethodDto.builder()
                         .displayName(child.getDisplayName())
                         .uniqueId(child.getUniqueId())
@@ -141,26 +132,27 @@ public class TestCatalogServiceImpl implements TestCatalogService {
                         .children(nestedMethods)
                         .build());
             } else {
-                result.addAll(collectMethodsHierarchical(testPlan, child));
+                // 기타 컨테이너 (재귀 탐색)
+                result.addAll(buildMethodsHierarchy(child.getUniqueId(), childrenMap));
             }
         }
 
         return result;
     }
 
-    private boolean isNestedClass(TestIdentifier identifier) {
-        return identifier.getUniqueId().contains("[nested-class:");
-    }
-
-    /**
-     * TestIdentifier에서 실제 메서드 이름을 추출.
-     * MethodSource를 사용하여 Java 메서드 이름을 가져옴.
-     */
-    private String extractMethodName(TestIdentifier identifier) {
-        return identifier.getSource()
-                .filter(MethodSource.class::isInstance)
-                .map(MethodSource.class::cast)
-                .map(MethodSource::getMethodName)
-                .orElse(identifier.getDisplayName()); // fallback to displayName
+    private String extractMethodNameFromUniqueId(String uniqueId) {
+        // uniqueId에서 메서드 이름 추출: ...[method:methodName()]
+        int methodStart = uniqueId.lastIndexOf("[method:");
+        if (methodStart != -1) {
+            int methodEnd = uniqueId.indexOf("(", methodStart);
+            if (methodEnd != -1) {
+                return uniqueId.substring(methodStart + 8, methodEnd);
+            }
+            methodEnd = uniqueId.indexOf("]", methodStart);
+            if (methodEnd != -1) {
+                return uniqueId.substring(methodStart + 8, methodEnd);
+            }
+        }
+        return uniqueId;
     }
 }

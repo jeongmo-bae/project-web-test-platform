@@ -1,4 +1,3 @@
-
 package testauto.testcode.unit;
 
 import org.junit.jupiter.api.DisplayName;
