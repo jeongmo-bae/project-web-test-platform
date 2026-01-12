@@ -13,3 +13,7 @@ CREATE TABLE IF NOT EXISTS bng000a.c_test_result (
     INDEX c_test_result_idx1 (execution_id),
     FOREIGN KEY (execution_id) REFERENCES bng000a.c_test_execution(execution_id) ON DELETE CASCADE
     );
+
+
+
+# drop table bng000a.c_test_result

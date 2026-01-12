@@ -20,3 +20,6 @@ CREATE TABLE IF NOT EXISTS bng000a.c_test_execution
 # ALTER TABLE bng000a.c_test_execution ADD COLUMN requester_ip VARCHAR(45);
 # ALTER TABLE bng000a.c_test_execution ADD COLUMN class_names TEXT;
 # ALTER TABLE bng000a.c_test_execution ADD COLUMN status VARCHAR(20) DEFAULT 'RUNNING';
+
+
+# drop table bng000a.c_test_execution
