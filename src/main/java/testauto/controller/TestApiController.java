@@ -106,6 +106,42 @@ public class TestApiController {
         return ResponseEntity.ok(new ServerTimeResponse(today));
     }
 
+    @GetMapping("/dashboard")
+    public ResponseEntity<DashboardResponse> getDashboard() {
+        DashboardResponse dashboard = testExecutionService.getDashboardStats();
+        return ResponseEntity.ok(dashboard);
+    }
+
+    public record DashboardResponse(
+            TodayStats todayStats,
+            List<DailyTrend> weeklyTrend,
+            List<RecentFailure> recentFailures,
+            int totalTestClasses
+    ) {}
+
+    public record TodayStats(
+            int totalExecutions,
+            int totalTests,
+            int successCount,
+            int failedCount,
+            int skippedCount,
+            double successRate
+    ) {}
+
+    public record DailyTrend(
+            String date,
+            int executions,
+            int successCount,
+            int failedCount
+    ) {}
+
+    public record RecentFailure(
+            String displayName,
+            String errorMessage,
+            String startedAt,
+            String executionId
+    ) {}
+
     @GetMapping("/executions")
     public ResponseEntity<List<TestExecution>> getRecentExecutions(
             @RequestParam(defaultValue = "20") int limit) {

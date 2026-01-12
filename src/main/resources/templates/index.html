@@ -15,9 +15,9 @@
         <a href="/" class="app-title">Campaign Test Platform</a>
     </div>
     <nav class="app-header-nav">
-        <button class="header-nav-button active" data-view="home">Home</button>
-        <button class="header-nav-button" data-view="test-info">Test Information</button>
-        <button class="header-nav-button" data-view="test-results">Test Results</button>
+        <button class="header-nav-button active" data-view="dashboard">Dashboard</button>
+        <button class="header-nav-button" data-view="test-info">Test Info</button>
+        <button class="header-nav-button" data-view="test-results">Results</button>
     </nav>
     <div class="app-header-right"></div>
 </header>
@@ -58,11 +58,13 @@
 
     <!-- 우측 메인 영역 -->
     <main class="main">
-        <!-- Home 뷰 -->
-        <div class="view-panel active" id="viewHome">
-            <div class="empty-state">
-                <div class="empty-state-icon">📋</div>
-                <p>Select a test class to view details</p>
+        <!-- Dashboard 뷰 -->
+        <div class="view-panel active" id="viewDashboard">
+            <div class="dashboard-container" id="dashboardContent">
+                <div class="dashboard-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading dashboard...</p>
+                </div>
             </div>
         </div>
 
@@ -70,7 +72,7 @@
         <div class="view-panel" id="viewTestInfo">
             <div class="content-area" id="testInfoContent">
                 <div class="empty-state">
-                    <div class="empty-state-icon">📝</div>
+                    <div class="empty-state-icon">&#128196;</div>
                     <p>Select a test class from the left panel</p>
                 </div>
             </div>
@@ -80,7 +82,7 @@
         <div class="view-panel" id="viewTestResults">
             <div class="content-area" id="testResultsContent">
                 <div class="empty-state">
-                    <div class="empty-state-icon">📊</div>
+                    <div class="empty-state-icon">&#128202;</div>
                     <p>No test results available</p>
                 </div>
             </div>

@@ -1,5 +1,6 @@
 package testauto.service;
 
+import testauto.controller.TestApiController.DashboardResponse;
 import testauto.domain.TestExecution;
 import testauto.domain.TestResult;
 import testauto.domain.TestResultRecord;
@@ -33,4 +34,9 @@ public interface TestExecutionService {
      * 특정 실행의 결과를 트리 형태로 조회
      */
     List<TestResult> getExecutionResultTree(String executionId);
+
+    /**
+     * 대시보드 통계 조회
+     */
+    DashboardResponse getDashboardStats();
 }

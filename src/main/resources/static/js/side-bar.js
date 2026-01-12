@@ -1,22 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
     let selectedClasses = new Set();
-    let currentView = 'home';
+    let currentView = 'dashboard';
     let currentTestInfoCache = null;
     let executionListCache = null;
     let selectedExecutionId = null;
+    let dashboardCache = null;
 
     const runButton = document.getElementById('runButton');
     const refreshButton = document.getElementById('refreshButton');
 
     // 뷰 패널 요소들
     const viewPanels = {
-        'home': document.getElementById('viewHome'),
+        'dashboard': document.getElementById('viewDashboard'),
         'test-info': document.getElementById('viewTestInfo'),
         'test-results': document.getElementById('viewTestResults')
     };
 
+    const dashboardContent = document.getElementById('dashboardContent');
     const testInfoContent = document.getElementById('testInfoContent');
     const testResultsContent = document.getElementById('testResultsContent');
+
+    // 초기 대시보드 로드
+    loadDashboard();
 
     /* ===== 헤더 네비게이션 ===== */
     const headerNavButtons = document.querySelectorAll('.header-nav-button');
@@ -48,6 +53,156 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewName === 'test-results' && !executionListCache) {
             loadTestResults();
         }
+
+        // dashboard 뷰로 전환시 대시보드 로드
+        if (viewName === 'dashboard' && !dashboardCache) {
+            loadDashboard();
+        }
+    }
+
+    /* ===== 대시보드 로드 ===== */
+    async function loadDashboard() {
+        try {
+            const response = await fetch('/api/tests/dashboard');
+            const data = await response.json();
+            dashboardCache = data;
+            renderDashboard(data);
+        } catch (error) {
+            console.error('Failed to load dashboard:', error);
+            dashboardContent.innerHTML = `
+                <div class="dashboard-loading">
+                    <div class="empty-state-icon">&#x26A0;</div>
+                    <p>Failed to load dashboard</p>
+                </div>
+            `;
+        }
+    }
+
+    function renderDashboard(data) {
+        const { todayStats, weeklyTrend, recentFailures, totalTestClasses } = data;
+        const successRate = todayStats.successRate.toFixed(1);
+
+        // 주간 트렌드 차트 생성
+        const maxValue = Math.max(...weeklyTrend.map(d => d.successCount + d.failedCount), 1);
+        const trendBarsHtml = weeklyTrend.length > 0 ? weeklyTrend.map(day => {
+            const successHeight = (day.successCount / maxValue) * 100;
+            const failedHeight = (day.failedCount / maxValue) * 100;
+            const dateLabel = day.date.substring(5); // MM-DD
+            return `
+                <div class="trend-bar-group">
+                    <div class="trend-bars">
+                        <div class="trend-bar success" style="height: ${successHeight}px" title="${day.successCount} passed"></div>
+                        <div class="trend-bar failed" style="height: ${failedHeight}px" title="${day.failedCount} failed"></div>
+                    </div>
+                    <span class="trend-label">${dateLabel}</span>
+                </div>
+            `;
+        }).join('') : '<div class="no-failures"><p>No data available</p></div>';
+
+        // 최근 실패 목록
+        const failuresHtml = recentFailures.length > 0 ? recentFailures.map(f => {
+            const time = f.startedAt ? formatDateTime(f.startedAt) : '-';
+            const errorPreview = f.errorMessage ? f.errorMessage.substring(0, 80) + (f.errorMessage.length > 80 ? '...' : '') : 'No error message';
+            return `
+                <div class="failure-item" onclick="selectExecution('${f.executionId}'); switchView('test-results');">
+                    <div class="failure-icon">&#x2717;</div>
+                    <div class="failure-content">
+                        <div class="failure-name">${escapeHtml(f.displayName)}</div>
+                        <div class="failure-error">${escapeHtml(errorPreview)}</div>
+                    </div>
+                    <div class="failure-time">${time}</div>
+                </div>
+            `;
+        }).join('') : `
+            <div class="no-failures">
+                <div class="no-failures-icon">&#x2714;</div>
+                <p>No recent failures</p>
+            </div>
+        `;
+
+        dashboardContent.innerHTML = `
+            <div class="dashboard-header">
+                <h1>Dashboard</h1>
+                <p>Test execution overview and statistics</p>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <div class="stat-card-icon blue">&#x1F4CA;</div>
+                        <span class="stat-card-label">Total Classes</span>
+                    </div>
+                    <div class="stat-card-value">${totalTestClasses}</div>
+                    <div class="stat-card-subtitle">Test classes registered</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <div class="stat-card-icon green">&#x2714;</div>
+                        <span class="stat-card-label">Today Passed</span>
+                    </div>
+                    <div class="stat-card-value green">${todayStats.successCount}</div>
+                    <div class="stat-card-subtitle">${successRate}% success rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <div class="stat-card-icon red">&#x2717;</div>
+                        <span class="stat-card-label">Today Failed</span>
+                    </div>
+                    <div class="stat-card-value red">${todayStats.failedCount}</div>
+                    <div class="stat-card-subtitle">${todayStats.totalExecutions} executions today</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-card-header">
+                        <div class="stat-card-icon yellow">&#x23F1;</div>
+                        <span class="stat-card-label">Today Tests</span>
+                    </div>
+                    <div class="stat-card-value">${todayStats.totalTests}</div>
+                    <div class="stat-card-subtitle">${todayStats.skippedCount} skipped</div>
+                </div>
+            </div>
+
+            <div class="dashboard-row">
+                <div class="dashboard-card">
+                    <div class="dashboard-card-header">
+                        <span class="dashboard-card-title">&#x1F4C8; Weekly Trend</span>
+                    </div>
+                    <div class="dashboard-card-body">
+                        <div class="trend-chart">
+                            ${trendBarsHtml}
+                        </div>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="dashboard-card-header">
+                        <span class="dashboard-card-title">&#x26A0; Recent Failures</span>
+                    </div>
+                    <div class="dashboard-card-body">
+                        <div class="failure-list">
+                            ${failuresHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <span class="dashboard-card-title">&#x26A1; Quick Actions</span>
+                </div>
+                <div class="dashboard-card-body">
+                    <div class="quick-actions">
+                        <button class="quick-action-btn" onclick="switchView('test-results');">
+                            &#x1F4CB; View All Results
+                        </button>
+                        <button class="quick-action-btn" onclick="document.getElementById('refreshButton').click();">
+                            &#x1F504; Refresh Test Catalog
+                        </button>
+                        <button class="quick-action-btn primary" onclick="dashboardCache = null; loadDashboard();">
+                            &#x1F504; Refresh Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     // 네비게이션 버튼 클릭 이벤트
@@ -129,12 +284,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const classesToRun = Array.from(selectedClasses);
 
-        // 실행 요청 시작 시 선택 초기화
+        // 선택 즉시 초기화 (UI 바로 반응)
         clearSelection();
 
-        runButton.disabled = true;
-        runButton.textContent = 'Running...';
-
+        // 비동기로 실행 요청 (await 없이 fire-and-forget)
         runTests(classesToRun);
     });
 
@@ -581,12 +734,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        const detailBody = document.querySelector('#executionDetailPanel .execution-detail-body');
+        const detailPanel = document.getElementById('executionDetailPanel');
+        const detailHeader = detailPanel?.querySelector('.execution-detail-header');
+        const detailBody = detailPanel?.querySelector('.execution-detail-body');
         if (!detailBody) return;
+
+        // 헤더에 재실행 버튼 추가
+        if (detailHeader) {
+            detailHeader.innerHTML = `
+                <span>Details</span>
+                <button class="rerun-btn" onclick="rerunExecution('${executionId}')" title="Rerun this execution">
+                    &#x1F504; Rerun
+                </button>
+            `;
+        }
 
         detailBody.innerHTML = `
             <div class="execution-detail-empty">
-                <div class="execution-detail-empty-icon">⏳</div>
+                <div class="execution-detail-empty-icon">&#x23F3;</div>
                 <p>Loading...</p>
             </div>
         `;
@@ -612,15 +777,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="summary-label">Total</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-value" style="color: #28a745;">${summary.success}</span>
+                            <span class="summary-value" style="color: var(--accent-green);">${summary.success}</span>
                             <span class="summary-label">Success</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-value" style="color: #dc3545;">${summary.failed}</span>
+                            <span class="summary-value" style="color: var(--accent-red);">${summary.failed}</span>
                             <span class="summary-label">Failed</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-value" style="color: #ffc107;">${summary.skipped}</span>
+                            <span class="summary-value" style="color: var(--accent-yellow);">${summary.skipped}</span>
                             <span class="summary-label">Skipped</span>
                         </div>
                         <div class="summary-item">
@@ -641,7 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Failed to load execution results:', error);
             detailBody.innerHTML = `
                 <div class="execution-detail-empty">
-                    <div class="execution-detail-empty-icon">X</div>
+                    <div class="execution-detail-empty-icon">&#x2717;</div>
                     <p>Failed to load results</p>
                 </div>
             `;
@@ -779,6 +944,61 @@ document.addEventListener('DOMContentLoaded', () => {
     window.loadTestResults = loadTestResults;
     window.selectExecution = selectExecution;
     window.switchView = switchView;
+    window.loadDashboard = loadDashboard;
+    window.dashboardCache = null;
+
+    // 재실행 함수
+    window.rerunExecution = async function(executionId) {
+        const execution = executionListCache?.find(e => e.executionId === executionId);
+        if (!execution || !execution.classNames) {
+            alert('Cannot rerun: execution data not found');
+            return;
+        }
+
+        const classNames = execution.classNames.split(',').filter(c => c.trim());
+        if (classNames.length === 0) {
+            alert('Cannot rerun: no classes found');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/tests/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ classNames })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'RUNNING' || result.status === 'COMPLETED') {
+                const tempExecution = {
+                    executionId: result.executionId,
+                    startedAt: new Date().toISOString(),
+                    status: 'RUNNING',
+                    classNames: classNames.join(','),
+                    totalTests: 0,
+                    successCount: 0,
+                    failedCount: 0,
+                    skippedCount: 0,
+                    totalDurationMillis: 0
+                };
+
+                if (executionListCache) {
+                    executionListCache = [tempExecution, ...executionListCache];
+                } else {
+                    executionListCache = [tempExecution];
+                }
+
+                renderExecutionListView(executionListCache);
+                selectExecution(result.executionId);
+            } else {
+                alert('Failed to rerun: ' + result.message);
+            }
+        } catch (error) {
+            console.error('Failed to rerun:', error);
+            alert('Failed to rerun tests');
+        }
+    };
 
     function renderTestResult(result) {
         const isNestedClass = result.id && /\[nested-class:[^\]]+\]$/.test(result.id);

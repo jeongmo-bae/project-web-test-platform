@@ -11,6 +11,7 @@ import testauto.domain.TestStatus;
 import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -179,5 +180,60 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                 "SELECT * FROM bng000a.c_test_execution ORDER BY started_at DESC LIMIT 1",
                 executionRowMapper
         ).stream().findFirst();
+    }
+
+    @Override
+    public Map<String, Object> getTodayStats() {
+        String sql = """
+                SELECT
+                    COUNT(*) as total_executions,
+                    COALESCE(SUM(total_tests), 0) as total_tests,
+                    COALESCE(SUM(success_count), 0) as success_count,
+                    COALESCE(SUM(failed_count), 0) as failed_count,
+                    COALESCE(SUM(skipped_count), 0) as skipped_count
+                FROM bng000a.c_test_execution
+                WHERE DATE(started_at) = CURDATE() AND status = 'COMPLETED'
+                """;
+        return jdbcTemplate.queryForMap(sql);
+    }
+
+    @Override
+    public List<Map<String, Object>> getWeeklyTrend() {
+        String sql = """
+                SELECT
+                    DATE(started_at) as date,
+                    COUNT(*) as executions,
+                    COALESCE(SUM(success_count), 0) as success_count,
+                    COALESCE(SUM(failed_count), 0) as failed_count
+                FROM bng000a.c_test_execution
+                WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) AND status = 'COMPLETED'
+                GROUP BY DATE(started_at)
+                ORDER BY DATE(started_at)
+                """;
+        return jdbcTemplate.queryForList(sql);
+    }
+
+    @Override
+    public List<Map<String, Object>> getRecentFailures(int limit) {
+        String sql = """
+                SELECT
+                    r.display_name,
+                    r.error_message,
+                    e.started_at,
+                    e.execution_id
+                FROM bng000a.c_test_result r
+                JOIN bng000a.c_test_execution e ON r.execution_id = e.execution_id
+                WHERE r.status = 'FAILED'
+                ORDER BY e.started_at DESC
+                LIMIT ?
+                """;
+        return jdbcTemplate.queryForList(sql, limit);
+    }
+
+    @Override
+    public int getTotalTestClasses() {
+        String sql = "SELECT COUNT(DISTINCT classname) FROM bng000a.C_TEST_NODE_CATALOG WHERE type = 'CLASS'";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
+        return count != null ? count : 0;
     }
 }

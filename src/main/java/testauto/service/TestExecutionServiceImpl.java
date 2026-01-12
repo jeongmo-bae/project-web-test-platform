@@ -2,6 +2,10 @@ package testauto.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import testauto.controller.TestApiController.DashboardResponse;
+import testauto.controller.TestApiController.TodayStats;
+import testauto.controller.TestApiController.DailyTrend;
+import testauto.controller.TestApiController.RecentFailure;
 import testauto.repository.TestExecutionRepository;
 import testauto.domain.TestExecution;
 import testauto.domain.TestResult;
@@ -11,6 +15,7 @@ import testauto.runner.TestRunner;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -230,5 +235,46 @@ public class TestExecutionServiceImpl implements TestExecutionService {
         }
 
         return roots;
+    }
+
+    @Override
+    public DashboardResponse getDashboardStats() {
+        // Today's stats
+        Map<String, Object> todayData = executionRepository.getTodayStats();
+        int totalExecs = ((Number) todayData.get("total_executions")).intValue();
+        int totalTests = ((Number) todayData.get("total_tests")).intValue();
+        int successCount = ((Number) todayData.get("success_count")).intValue();
+        int failedCount = ((Number) todayData.get("failed_count")).intValue();
+        int skippedCount = ((Number) todayData.get("skipped_count")).intValue();
+        double successRate = totalTests > 0 ? (successCount * 100.0 / totalTests) : 0;
+
+        TodayStats todayStats = new TodayStats(totalExecs, totalTests, successCount, failedCount, skippedCount, successRate);
+
+        // Weekly trend
+        List<Map<String, Object>> weeklyData = executionRepository.getWeeklyTrend();
+        List<DailyTrend> weeklyTrend = weeklyData.stream()
+                .map(row -> new DailyTrend(
+                        row.get("date").toString(),
+                        ((Number) row.get("executions")).intValue(),
+                        ((Number) row.get("success_count")).intValue(),
+                        ((Number) row.get("failed_count")).intValue()
+                ))
+                .toList();
+
+        // Recent failures
+        List<Map<String, Object>> failureData = executionRepository.getRecentFailures(10);
+        List<RecentFailure> recentFailures = failureData.stream()
+                .map(row -> new RecentFailure(
+                        (String) row.get("display_name"),
+                        (String) row.get("error_message"),
+                        row.get("started_at") != null ? row.get("started_at").toString() : null,
+                        (String) row.get("execution_id")
+                ))
+                .toList();
+
+        // Total test classes
+        int totalTestClasses = executionRepository.getTotalTestClasses();
+
+        return new DashboardResponse(todayStats, weeklyTrend, recentFailures, totalTestClasses);
     }
 }
