@@ -161,7 +161,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     @Override
     public List<TestExecution> findRecentExecutions(int limit) {
         return jdbcTemplate.query(
-                "SELECT * FROM bng000a.c_test_execution ORDER BY started_at DESC LIMIT ?",
+                "SELECT * FROM bng000a.c_test_execution ORDER BY started_at DESC FETCH FIRST ? ROWS ONLY",
                 executionRowMapper, limit
         );
     }
@@ -177,7 +177,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     @Override
     public Optional<TestExecution> findLatestExecution() {
         return jdbcTemplate.query(
-                "SELECT * FROM bng000a.c_test_execution ORDER BY started_at DESC LIMIT 1",
+                "SELECT * FROM bng000a.c_test_execution ORDER BY started_at DESC FETCH FIRST 1 ROW ONLY",
                 executionRowMapper
         ).stream().findFirst();
     }
@@ -192,7 +192,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                     COALESCE(SUM(failed_count), 0) as failed_count,
                     COALESCE(SUM(skipped_count), 0) as skipped_count
                 FROM bng000a.c_test_execution
-                WHERE DATE(started_at) = CURDATE() AND status = 'COMPLETED'
+                WHERE DATE(started_at) = CURRENT DATE AND status = 'COMPLETED'
                 """;
         return jdbcTemplate.queryForMap(sql);
     }
@@ -206,7 +206,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                     COALESCE(SUM(success_count), 0) as success_count,
                     COALESCE(SUM(failed_count), 0) as failed_count
                 FROM bng000a.c_test_execution
-                WHERE started_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) AND status = 'COMPLETED'
+                WHERE started_at >= CURRENT DATE - 6 DAYS AND status = 'COMPLETED'
                 GROUP BY DATE(started_at)
                 ORDER BY DATE(started_at)
                 """;
@@ -225,7 +225,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                 JOIN bng000a.c_test_execution e ON r.execution_id = e.execution_id
                 WHERE r.status = 'FAILED'
                 ORDER BY e.started_at DESC
-                LIMIT ?
+                FETCH FIRST ? ROWS ONLY
                 """;
         return jdbcTemplate.queryForList(sql, limit);
     }

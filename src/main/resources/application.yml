@@ -6,10 +6,10 @@ spring:
     cache: false
 
   datasource:
-    url: jdbc:mysql://localhost:3306?useSSL=false&serverTimezone=Asia/Seoul&useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:db2://localhost:50000/bng000a
+    username: db2admin
+    password: db2admin
+    driver-class-name: com.ibm.db2.jcc.DB2Driver
     hikari:
       maximum-pool-size: 100
       minimum-idle: 5

@@ -31,8 +31,8 @@ public class TestNodeDbRepository implements TestNodeRepository {
     @Override
     public void save(TestNode testNode) {
         String sql = """
-                insert into bng000a.C_TEST_NODE_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
-                values (?,?,?,?,?);""";
+                INSERT INTO bng000a.C_TEST_NODE_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
+                VALUES (?,?,?,?,?)""";
         jdbcTemplate.update(con -> {
             PreparedStatement ps = con.prepareStatement(sql);
             ps.setString(1, testNode.getUniqueId());
@@ -51,8 +51,8 @@ public class TestNodeDbRepository implements TestNodeRepository {
         }
 
         String sql = """
-                insert into bng000a.C_TEST_NODE_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
-                values (?,?,?,?,?)""";
+                INSERT INTO bng000a.C_TEST_NODE_CATALOG (unique_id, parent_unique_id, displayname, classname, type)
+                VALUES (?,?,?,?,?)""";
 
         jdbcTemplate.batchUpdate(sql, testNodes, testNodes.size(),
                 (ps, testNode) -> {

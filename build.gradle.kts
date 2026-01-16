@@ -44,7 +44,7 @@ dependencies {
     // JavaParser for source code parsing
     implementation("com.github.javaparser:javaparser-core:3.26.3")
 
-	runtimeOnly("com.mysql:mysql-connector-j")
+	runtimeOnly("com.ibm.db2:jcc:11.5.9.0")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 
 }

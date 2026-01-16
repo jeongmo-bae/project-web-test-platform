@@ -11,6 +11,7 @@ import testauto.runner.TestRunner;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,7 +52,8 @@ public class ProcessExecutorService {
         Process process = pb.start();
 
         // 출력 로깅
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 log.debug("[gradle] {}", line);
@@ -103,6 +105,9 @@ public class ProcessExecutorService {
     private List<String> buildJavaCommand(String... args) throws Exception {
         List<String> command = new ArrayList<>();
         command.add(getJavaExecutable());
+        command.add("-Dfile.encoding=UTF-8");
+        command.add("-Dstdout.encoding=UTF-8");
+        command.add("-Dstderr.encoding=UTF-8");
         command.add("-cp");
         String classpath = buildClasspath();
         log.info("Built classpath: {}", classpath);
@@ -161,7 +166,8 @@ public class ProcessExecutorService {
         Process process = pb.start();
 
         StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 output.append(line).append("\n");
