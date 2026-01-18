@@ -6,6 +6,7 @@ import testauto.controller.TestApiController.DashboardResponse;
 import testauto.controller.TestApiController.TodayStats;
 import testauto.controller.TestApiController.DailyTrend;
 import testauto.controller.TestApiController.RecentFailure;
+import testauto.controller.TestApiController.RecentExecution;
 import testauto.repository.TestExecutionRepository;
 import testauto.domain.TestExecution;
 import testauto.domain.TestResult;
@@ -272,9 +273,27 @@ public class TestExecutionServiceImpl implements TestExecutionService {
                 ))
                 .toList();
 
+        // Recent executions (10개)
+        List<TestExecution> executions = executionRepository.findRecentExecutions(10);
+        List<RecentExecution> recentExecutions = executions.stream()
+                .map(e -> new RecentExecution(
+                        e.getExecutionId(),
+                        e.getStartedAt() != null ? e.getStartedAt().toString() : null,
+                        e.getStatus(),
+                        e.getTotalTests(),
+                        e.getSuccessCount(),
+                        e.getFailedCount(),
+                        e.getSkippedCount(),
+                        e.getTotalDurationMillis(),
+                        e.getRequesterName(),
+                        e.getRequesterIp(),
+                        e.getClassNames()
+                ))
+                .toList();
+
         // Total test classes
         int totalTestClasses = executionRepository.getTotalTestClasses();
 
-        return new DashboardResponse(todayStats, weeklyTrend, recentFailures, totalTestClasses);
+        return new DashboardResponse(todayStats, weeklyTrend, recentFailures, recentExecutions, totalTestClasses);
     }
 }

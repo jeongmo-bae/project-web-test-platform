@@ -116,7 +116,22 @@ public class TestApiController {
             TodayStats todayStats,
             List<DailyTrend> weeklyTrend,
             List<RecentFailure> recentFailures,
+            List<RecentExecution> recentExecutions,
             int totalTestClasses
+    ) {}
+
+    public record RecentExecution(
+            String executionId,
+            String startedAt,
+            String status,
+            int totalTests,
+            int successCount,
+            int failedCount,
+            int skippedCount,
+            long totalDurationMillis,
+            String requesterName,
+            String requesterIp,
+            String classNames
     ) {}
 
     public record TodayStats(

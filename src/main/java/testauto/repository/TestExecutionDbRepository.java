@@ -32,9 +32,18 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                     .skippedCount(rs.getInt("skipped_count"))
                     .totalDurationMillis(rs.getLong("total_duration_millis"))
                     .requesterIp(rs.getString("requester_ip"))
+                    .requesterName(getStringOrNull(rs, "requester_name"))
                     .classNames(rs.getString("class_names"))
                     .status(rs.getString("status"))
                     .build();
+
+    private String getStringOrNull(java.sql.ResultSet rs, String columnName) {
+        try {
+            return rs.getString(columnName);
+        } catch (java.sql.SQLException e) {
+            return null;
+        }
+    }
 
     private final RowMapper<TestResultRecord> resultRowMapper = (rs, rowNum) ->
             TestResultRecord.builder()
@@ -160,10 +169,14 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
 
     @Override
     public List<TestExecution> findRecentExecutions(int limit) {
-        return jdbcTemplate.query(
-                "SELECT * FROM bng000a.c_test_execution ORDER BY started_at DESC FETCH FIRST ? ROWS ONLY",
-                executionRowMapper, limit
-        );
+        String sql = """
+                SELECT e.*, m.emp_name AS requester_name
+                FROM bng000a.c_test_execution e
+                LEFT JOIN bng000a.c_morning_monitor_manager m ON e.requester_ip = m.emp_ip
+                ORDER BY e.started_at DESC
+                FETCH FIRST ? ROWS ONLY
+                """;
+        return jdbcTemplate.query(sql, executionRowMapper, limit);
     }
 
     @Override
@@ -232,7 +245,7 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
 
     @Override
     public int getTotalTestClasses() {
-        String sql = "SELECT COUNT(DISTINCT classname) FROM bng000a.C_TEST_NODE_CATALOG WHERE type = 'CLASS'";
+        String sql = "SELECT COUNT(DISTINCT classname) FROM bng000a.C_TEST_NODE_CATALOG WHERE type = 'CONTAINER' AND classname IS NOT NULL AND unique_id NOT LIKE '%[nested-class:%'";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
         return count != null ? count : 0;
     }

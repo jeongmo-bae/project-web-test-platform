@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let executionListCache = null;
     let selectedExecutionId = null;
     let dashboardCache = null;
+    let dashboardPollingInterval = null;
+    let selectedClassForSummary = null;
 
     const runButton = document.getElementById('runButton');
     const refreshButton = document.getElementById('refreshButton');
@@ -49,14 +51,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // test-results 뷰로 전환시 결과 로드
-        if (viewName === 'test-results' && !executionListCache) {
-            loadTestResults();
+        // Results 탭에서는 사이드바 숨김
+        const sidebar = document.getElementById('sidebar');
+        const resizer = document.getElementById('sidebar-resizer');
+        if (viewName === 'test-results') {
+            sidebar.classList.add('hidden');
+            resizer.classList.add('hidden');
+        } else {
+            sidebar.classList.remove('hidden');
+            resizer.classList.remove('hidden');
         }
 
-        // dashboard 뷰로 전환시 대시보드 로드
-        if (viewName === 'dashboard' && !dashboardCache) {
-            loadDashboard();
+        // 현재 선택된 클래스 확인
+        const selectedNode = document.querySelector('.class-node.selected');
+        const selectedClassName = selectedNode ? selectedNode.dataset.class : null;
+
+        // test-results 뷰로 전환시
+        if (viewName === 'test-results') {
+            if (!executionListCache) {
+                loadTestResults();
+            }
+        }
+
+        // dashboard 뷰로 전환시
+        if (viewName === 'dashboard') {
+            if (!dashboardCache) {
+                loadDashboard();
+            }
+            // 선택된 클래스가 있으면 테스트 요약 표시
+            if (selectedClassName) {
+                setTimeout(() => showTestSummary(selectedClassName), 100);
+            }
+        }
+
+        // test-info 뷰로 전환시 (skipViewSwitch 플래그로 무한루프 방지)
+        if (viewName === 'test-info' && selectedClassName) {
+            showClassDetailOnly(selectedClassName);
         }
     }
 
@@ -79,51 +109,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderDashboard(data) {
-        const { todayStats, weeklyTrend, recentFailures, totalTestClasses } = data;
+        const { todayStats, recentExecutions, totalTestClasses } = data;
         const successRate = todayStats.successRate.toFixed(1);
 
-        // 주간 트렌드 차트 생성
-        const maxValue = Math.max(...weeklyTrend.map(d => d.successCount + d.failedCount), 1);
-        const trendBarsHtml = weeklyTrend.length > 0 ? weeklyTrend.map(day => {
-            const successHeight = (day.successCount / maxValue) * 100;
-            const failedHeight = (day.failedCount / maxValue) * 100;
-            const dateLabel = day.date.substring(5); // MM-DD
-            return `
-                <div class="trend-bar-group">
-                    <div class="trend-bars">
-                        <div class="trend-bar success" style="height: ${successHeight}px" title="${day.successCount} passed"></div>
-                        <div class="trend-bar failed" style="height: ${failedHeight}px" title="${day.failedCount} failed"></div>
-                    </div>
-                    <span class="trend-label">${dateLabel}</span>
-                </div>
-            `;
-        }).join('') : '<div class="no-failures"><p>No data available</p></div>';
+        // 최근 실행결과 그리드
+        const recentExecutionsHtml = recentExecutions && recentExecutions.length > 0
+            ? recentExecutions.map(exec => {
+                const isRunning = exec.status === 'RUNNING';
+                const statusClass = isRunning ? 'running' :
+                                   exec.failedCount > 0 ? 'failed' : 'success';
+                const statusText = isRunning ? '수행중' :
+                                  exec.failedCount > 0 ? '실패' : '성공';
+                const dateStr = exec.startedAt ? formatDateTime(exec.startedAt) : '-';
+                const requesterName = exec.requesterName || exec.requesterIp || '-';
 
-        // 최근 실패 목록
-        const failuresHtml = recentFailures.length > 0 ? recentFailures.map(f => {
-            const time = f.startedAt ? formatDateTime(f.startedAt) : '-';
-            const errorPreview = f.errorMessage ? f.errorMessage.substring(0, 80) + (f.errorMessage.length > 80 ? '...' : '') : 'No error message';
-            return `
-                <div class="failure-item" onclick="selectExecution('${f.executionId}'); switchView('test-results');">
-                    <div class="failure-icon">&#x2717;</div>
-                    <div class="failure-content">
-                        <div class="failure-name">${escapeHtml(f.displayName)}</div>
-                        <div class="failure-error">${escapeHtml(errorPreview)}</div>
+                // 클래스명 포맷팅
+                const classNames = exec.classNames ? exec.classNames.split(',').filter(c => c.trim()) : [];
+                let classText = '-';
+                if (classNames.length === 1) {
+                    classText = classNames[0].split('.').pop();
+                } else if (classNames.length > 1) {
+                    classText = `${classNames[0].split('.').pop()} 외 ${classNames.length - 1}개`;
+                }
+
+                const durationStr = formatDuration(exec.totalDurationMillis);
+
+                return `
+                    <div class="recent-exec-item ${statusClass}" onclick="selectExecution('${exec.executionId}'); switchView('test-results');">
+                        <div class="recent-exec-status ${statusClass}">${statusText}</div>
+                        <div class="recent-exec-class" title="${escapeHtml(exec.classNames || '')}">${escapeHtml(classText)}</div>
+                        <div class="recent-exec-totals">${exec.totalTests}</div>
+                        <div class="recent-exec-successes">${exec.successCount}</div>
+                        <div class="recent-exec-failures">${exec.failedCount}</div>
+                        <div class="recent-exec-skipped">${exec.skippedCount}</div>
+                        <div class="recent-exec-duration">${durationStr}</div>
+                        <div class="recent-exec-requester">${escapeHtml(requesterName)}</div>
+                        <div class="recent-exec-time">${dateStr}</div>
                     </div>
-                    <div class="failure-time">${time}</div>
-                </div>
-            `;
-        }).join('') : `
-            <div class="no-failures">
-                <div class="no-failures-icon">&#x2714;</div>
-                <p>No recent failures</p>
-            </div>
-        `;
+                `;
+            }).join('')
+            : '<div class="recent-exec-empty">실행 이력이 없습니다</div>';
 
         dashboardContent.innerHTML = `
             <div class="dashboard-header">
-                <h1>Dashboard</h1>
-                <p>Test execution overview and statistics</p>
+                <div class="dashboard-header-left">
+                    <h1>Dashboard</h1>
+                    <p>Test execution overview and statistics</p>
+                </div>
+                <button class="dashboard-refresh-btn" onclick="dashboardCache = null; loadDashboard();" title="Refresh Dashboard">
+                    &#x1F504;
+                </button>
             </div>
 
             <div class="dashboard-grid">
@@ -164,45 +199,160 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="dashboard-row">
                 <div class="dashboard-card">
                     <div class="dashboard-card-header">
-                        <span class="dashboard-card-title">&#x1F4C8; Weekly Trend</span>
+                        <span class="dashboard-card-title">&#x1F4D6; 테스트 정보 요약</span>
+                        <button class="dashboard-detail-btn" id="goToTestInfoBtn" style="display: none;">자세히보기 →</button>
                     </div>
-                    <div class="dashboard-card-body">
-                        <div class="trend-chart">
-                            ${trendBarsHtml}
+                    <div class="dashboard-card-body" id="testSummaryContent">
+                        <div class="test-summary-empty">
+                            <div class="test-summary-empty-icon">&#128196;</div>
+                            <p>좌측에서 테스트 클래스를 선택하세요</p>
                         </div>
                     </div>
                 </div>
                 <div class="dashboard-card">
                     <div class="dashboard-card-header">
-                        <span class="dashboard-card-title">&#x26A0; Recent Failures</span>
+                        <span class="dashboard-card-title">&#x1F4CB; 최근 실행 결과</span>
+                        <button class="dashboard-detail-btn" id="goToResultsBtn">이력 더보기 →</button>
                     </div>
-                    <div class="dashboard-card-body">
-                        <div class="failure-list">
-                            ${failuresHtml}
+                    <div class="dashboard-card-body dashboard-card-body-scroll">
+                        <div class="recent-exec-grid">
+                            <div class="recent-exec-header">
+                                <div class="recent-exec-status">상태</div>
+                                <div class="recent-exec-class">테스트 클래스</div>
+                                <div class="recent-exec-totals">Totals</div>
+                                <div class="recent-exec-successes">Success</div>
+                                <div class="recent-exec-failures">Fail</div>
+                                <div class="recent-exec-skipped">Skip</div>
+                                <div class="recent-exec-duration">Duration</div>
+                                <div class="recent-exec-requester">실행자</div>
+                                <div class="recent-exec-time">실행 시간</div>
+                            </div>
+                            ${recentExecutionsHtml}
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="dashboard-card">
-                <div class="dashboard-card-header">
-                    <span class="dashboard-card-title">&#x26A1; Quick Actions</span>
-                </div>
-                <div class="dashboard-card-body">
-                    <div class="quick-actions">
-                        <button class="quick-action-btn" onclick="switchView('test-results');">
-                            &#x1F4CB; View All Results
-                        </button>
-                        <button class="quick-action-btn" onclick="document.getElementById('refreshButton').click();">
-                            &#x1F504; Refresh Test Catalog
-                        </button>
-                        <button class="quick-action-btn primary" onclick="dashboardCache = null; loadDashboard();">
-                            &#x1F504; Refresh Dashboard
-                        </button>
-                    </div>
-                </div>
-            </div>
         `;
+
+        // 버튼 이벤트
+        setTimeout(() => {
+            const goToTestInfoBtn = document.getElementById('goToTestInfoBtn');
+            if (goToTestInfoBtn) {
+                goToTestInfoBtn.addEventListener('click', () => {
+                    if (selectedClassForSummary) {
+                        showClassDetail(selectedClassForSummary);
+                    }
+                });
+            }
+
+            const goToResultsBtn = document.getElementById('goToResultsBtn');
+            if (goToResultsBtn) {
+                goToResultsBtn.addEventListener('click', () => {
+                    switchView('test-results');
+                });
+            }
+        }, 0);
+
+        // RUNNING 상태가 있으면 자동 업데이트 시작
+        startDashboardPollingIfNeeded(recentExecutions);
+
+        // 선택된 클래스가 있으면 테스트 요약 다시 표시
+        if (selectedClassForSummary) {
+            setTimeout(() => showTestSummary(selectedClassForSummary), 0);
+        }
+
+        // 컬럼 리사이징 이벤트 바인딩
+        setTimeout(() => bindColumnResizeEvents(), 0);
+    }
+
+    // 최근실행결과 컬럼 리사이징
+    function bindColumnResizeEvents() {
+        const grid = document.querySelector('.recent-exec-grid');
+        if (!grid) return;
+
+        const header = grid.querySelector('.recent-exec-header');
+        if (!header) return;
+
+        const columns = header.querySelectorAll(':scope > div');
+        const columnVars = [
+            '--col-status',
+            '--col-class',
+            '--col-totals',
+            '--col-successes',
+            '--col-failures',
+            '--col-skipped',
+            '--col-duration',
+            '--col-requester',
+            '--col-time'
+        ];
+
+        columns.forEach((col, index) => {
+            if (index >= columns.length - 1) return; // 마지막 컬럼은 리사이즈 안함
+
+            col.addEventListener('mousedown', (e) => {
+                const rect = col.getBoundingClientRect();
+                // 오른쪽 8px 영역에서만 리사이즈 시작
+                if (e.clientX < rect.right - 8) return;
+
+                e.preventDefault();
+                col.classList.add('resizing');
+
+                const startX = e.clientX;
+                const startWidth = col.offsetWidth;
+
+                const onMouseMove = (moveEvent) => {
+                    const dx = moveEvent.clientX - startX;
+                    const newWidth = Math.max(40, startWidth + dx);
+                    grid.style.setProperty(columnVars[index], newWidth + 'px');
+                };
+
+                const onMouseUp = () => {
+                    col.classList.remove('resizing');
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                };
+
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    }
+
+    // Dashboard 자동 업데이트 (RUNNING 상태 감지)
+    function startDashboardPollingIfNeeded(recentExecutions) {
+        // 기존 폴링 중지
+        if (dashboardPollingInterval) {
+            clearInterval(dashboardPollingInterval);
+            dashboardPollingInterval = null;
+        }
+
+        // RUNNING 상태가 있는지 확인
+        const hasRunning = recentExecutions && recentExecutions.some(exec => exec.status === 'RUNNING');
+
+        if (hasRunning && currentView === 'dashboard') {
+            // 3초마다 업데이트
+            dashboardPollingInterval = setInterval(async () => {
+                if (currentView !== 'dashboard') {
+                    clearInterval(dashboardPollingInterval);
+                    dashboardPollingInterval = null;
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/tests/dashboard');
+                    const data = await response.json();
+                    dashboardCache = data;
+                    renderDashboard(data);
+                } catch (error) {
+                    console.error('Failed to poll dashboard:', error);
+                }
+            }, 3000);
+        }
     }
 
     // 네비게이션 버튼 클릭 이벤트
@@ -268,27 +418,183 @@ document.addEventListener('DOMContentLoaded', () => {
         node.addEventListener('click', function(e) {
             if (e.target.type === 'checkbox') return;
 
-            document.querySelectorAll('.class-node').forEach(n => n.classList.remove('selected'));
-            this.classList.add('selected');
-
+            const isAlreadySelected = this.classList.contains('selected');
             const className = this.dataset.class;
-            if (className) {
-                showClassDetail(className);
+
+            // 모든 선택 해제
+            document.querySelectorAll('.class-node').forEach(n => n.classList.remove('selected'));
+
+            if (isAlreadySelected) {
+                // 이미 선택된 걸 다시 클릭 → 선택 해제
+                if (currentView === 'dashboard') {
+                    clearTestSummary();
+                } else {
+                    clearTestInfo();
+                }
+            } else {
+                // 새로 선택
+                this.classList.add('selected');
+                if (className) {
+                    if (currentView === 'dashboard') {
+                        showTestSummary(className);
+                    } else {
+                        showClassDetail(className);
+                    }
+                }
             }
         });
     });
 
+    /* ===== 클래스명으로 Results 필터링 ===== */
+    async function filterByClassName(className) {
+        const simpleClassName = className.split('.').pop();
+        filterState.className = simpleClassName;
+        filterState.date = '';
+        filterState.ip = '';
+        filterState.status = '';
+
+        if (!executionListCache) {
+            await loadTestResults();
+        } else {
+            renderExecutionListView(executionListCache);
+        }
+    }
+
+    /* ===== 클래스명 필터 초기화 ===== */
+    async function clearClassNameFilter() {
+        filterState.className = '';
+        if (executionListCache) {
+            renderExecutionListView(executionListCache);
+        }
+    }
+
+    /* ===== Test Info 초기화 ===== */
+    function clearTestInfo() {
+        currentTestInfoCache = null;
+        testInfoContent.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">&#128196;</div>
+                <p>Select a test class from the left panel</p>
+            </div>
+        `;
+    }
+
+    /* ===== 대시보드 테스트 요약 표시 ===== */
+    async function showTestSummary(className) {
+        selectedClassForSummary = className;
+        const summaryContent = document.getElementById('testSummaryContent');
+        const detailBtn = document.getElementById('goToTestInfoBtn');
+
+        if (!summaryContent) return;
+
+        summaryContent.innerHTML = `
+            <div class="test-summary-loading">
+                <div class="loading-spinner"></div>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`/api/tests/class/${encodeURIComponent(className)}`);
+            const data = await response.json();
+
+            const methodTreeHtml = renderMethodTreeSimple(data.methods);
+
+            summaryContent.innerHTML = `
+                <div class="test-summary-info">
+                    <h3 class="test-summary-class-name">${escapeHtml(data.className)}</h3>
+                    <p class="test-summary-full-name">${escapeHtml(data.fullClassName)}</p>
+                    <div class="test-summary-tree">
+                        ${methodTreeHtml}
+                    </div>
+                </div>
+            `;
+
+            if (detailBtn) {
+                detailBtn.style.display = 'inline-block';
+            }
+        } catch (error) {
+            console.error('Failed to load test summary:', error);
+            summaryContent.innerHTML = `
+                <div class="test-summary-empty">
+                    <div class="test-summary-empty-icon">&#x26A0;</div>
+                    <p>Failed to load test summary</p>
+                </div>
+            `;
+        }
+    }
+
+    /* ===== 대시보드 테스트 요약 초기화 ===== */
+    function clearTestSummary() {
+        selectedClassForSummary = null;
+        const summaryContent = document.getElementById('testSummaryContent');
+        const detailBtn = document.getElementById('goToTestInfoBtn');
+
+        if (summaryContent) {
+            summaryContent.innerHTML = `
+                <div class="test-summary-empty">
+                    <div class="test-summary-empty-icon">&#128196;</div>
+                    <p>좌측에서 테스트 클래스를 선택하세요</p>
+                </div>
+            `;
+        }
+        if (detailBtn) {
+            detailBtn.style.display = 'none';
+        }
+    }
+
+    /* ===== 메서드 트리 간단 렌더링 (코드 없이) ===== */
+    function renderMethodTreeSimple(methods) {
+        if (!methods || methods.length === 0) {
+            return '<p class="test-summary-no-methods">No test methods</p>';
+        }
+
+        return `<ul class="test-summary-method-list">${methods.map(method => {
+            if (method.nestedClass) {
+                const childrenHtml = method.children && method.children.length > 0
+                    ? renderMethodTreeSimple(method.children)
+                    : '';
+                return `
+                    <li class="test-summary-nested">
+                        <span class="test-summary-nested-badge">Nested</span>
+                        <span class="test-summary-nested-name">${escapeHtml(method.displayName)}</span>
+                        ${childrenHtml}
+                    </li>
+                `;
+            } else {
+                return `
+                    <li class="test-summary-method">
+                        <span class="test-summary-method-icon">✓</span>
+                        <span class="test-summary-method-name">${escapeHtml(method.displayName)}</span>
+                    </li>
+                `;
+            }
+        }).join('')}</ul>`;
+    }
+
     /* ===== Run 버튼 클릭 ===== */
-    runButton.addEventListener('click', function() {
+    runButton.addEventListener('click', async function() {
         if (selectedClasses.size === 0) return;
 
         const classesToRun = Array.from(selectedClasses);
 
-        // 선택 즉시 초기화 (UI 바로 반응)
+        // 확인 다이얼로그
+        if (!confirm('실행하시겠습니까?')) {
+            return; // No 선택 시 아무것도 안함
+        }
+
+        // 선택 즉시 초기화
         clearSelection();
 
-        // 비동기로 실행 요청 (await 없이 fire-and-forget)
-        runTests(classesToRun);
+        // 요청만 보내고 끝 (화면 전환 없음)
+        try {
+            await fetch('/api/tests/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ classNames: classesToRun })
+            });
+        } catch (error) {
+            console.error('Failed to run tests:', error);
+        }
     });
 
     /* ===== 선택 초기화 ===== */
@@ -302,6 +608,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ===== 클래스 상세보기 ===== */
     async function showClassDetail(className) {
+        await showClassDetailOnly(className);
+        switchView('test-info');
+    }
+
+    /* ===== 클래스 상세보기 (뷰 전환 없이) ===== */
+    async function showClassDetailOnly(className) {
         try {
             const response = await fetch(`/api/tests/class/${encodeURIComponent(className)}`);
             const data = await response.json();
@@ -324,9 +636,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             testInfoContent.innerHTML = currentTestInfoCache;
-
-            // Test Information 뷰로 전환
-            switchView('test-info');
         } catch (error) {
             console.error('Failed to load class detail:', error);
             testInfoContent.innerHTML = `
@@ -335,7 +644,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p>Failed to load class details</p>
                 </div>
             `;
-            switchView('test-info');
         }
     }
 
@@ -555,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button class="filter-clear-btn" id="filterClearBtn">초기화</button>
             </div>
             <div class="execution-list-container">
-                <div class="execution-list-panel">
+                <div class="execution-list-panel" id="executionListPanel">
                     <div class="execution-list-header">
                         <span>History (${filteredExecutions.length})</span>
                         <button class="execution-refresh-btn" id="executionRefreshBtn" title="새로고침">↻</button>
@@ -564,6 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${listItemsHtml}
                     </div>
                 </div>
+                <div class="execution-resizer" id="executionResizer"></div>
                 <div class="execution-detail-panel" id="executionDetailPanel">
                     <div class="execution-detail-header">Details</div>
                     <div class="execution-detail-body">
@@ -649,6 +958,43 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadTestResults();
             executionRefreshBtn.classList.remove('loading');
         });
+
+        // History-Details 리사이저
+        const executionResizer = document.getElementById('executionResizer');
+        const executionListPanel = document.getElementById('executionListPanel');
+
+        if (executionResizer && executionListPanel) {
+            let isResizing = false;
+            let startX = 0;
+            let startWidth = 0;
+
+            executionResizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = executionListPanel.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const dx = e.clientX - startX;
+                const minWidth = 250;
+                const maxWidth = 500;
+                const newWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + dx));
+
+                executionListPanel.style.width = newWidth + 'px';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!isResizing) return;
+                isResizing = false;
+                document.body.style.cursor = 'default';
+                document.body.style.userSelect = '';
+            });
+        }
     }
 
     function applyFilters(executions) {
@@ -694,19 +1040,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateStr = formatDateTime(exec.startedAt);
         const itemClass = isRunning ? 'execution-item running' : 'execution-item';
 
-        const statsText = isRunning
-            ? '수행중...'
-            : `${exec.successCount} passed, ${exec.failedCount} failed, ${exec.skippedCount} skipped`;
-        const durationText = isRunning ? '' : `${exec.totalDurationMillis}ms`;
+        // 직원명 (없으면 IP 표시)
+        const requesterName = exec.requesterName || exec.requesterIp || '-';
+
+        // 클래스명 포맷팅 (예: "ClassA 외 4개")
+        const classNames = exec.classNames ? exec.classNames.split(',').filter(c => c.trim()) : [];
+        let classText = '-';
+        if (classNames.length === 1) {
+            classText = classNames[0].split('.').pop(); // 패키지 제거하고 클래스명만
+        } else if (classNames.length > 1) {
+            const firstName = classNames[0].split('.').pop();
+            classText = `${firstName} 외 ${classNames.length - 1}개`;
+        }
+
+        const statusText = isRunning ? '수행중...' :
+                          exec.failedCount > 0 ? `실패 ${exec.failedCount}` : '성공';
 
         return `
             <div class="${itemClass}" data-execution-id="${exec.executionId}">
                 <div class="execution-item-status ${statusClass}"></div>
                 <div class="execution-item-info">
-                    <div class="execution-item-time">${dateStr}</div>
-                    <div class="execution-item-stats">${statsText}</div>
+                    <div class="execution-item-class" title="${escapeHtml(exec.classNames || '')}">${escapeHtml(classText)}</div>
+                    <div class="execution-item-requester">${escapeHtml(requesterName)}</div>
                 </div>
-                <div class="execution-item-duration">${durationText}</div>
+                <div class="execution-item-meta">
+                    <div class="execution-item-status-text">${statusText}</div>
+                    <div class="execution-item-time">${dateStr}</div>
+                </div>
             </div>
         `;
     }
@@ -720,6 +1080,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const minutes = String(dt.getMinutes()).padStart(2, '0');
         const seconds = String(dt.getSeconds()).padStart(2, '0');
         return `${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    function formatDuration(millis) {
+        if (!millis || millis <= 0) return '-';
+        if (millis < 1000) return `${millis}ms`;
+        const seconds = Math.floor(millis / 1000);
+        const ms = millis % 1000;
+        if (ms === 0) return `${seconds}s`;
+        return `${seconds}s ${ms}ms`;
     }
 
     async function selectExecution(executionId) {
@@ -765,9 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // JUnit Jupiter 필터링하고 테스트 클래스만 추출
             const testClasses = filterAndGroupByClass(results);
-            const classSummaries = calculateClassSummaries(testClasses);
             const classResultsHtml = renderClassResults(testClasses);
-            const classSummaryHtml = renderClassSummaries(classSummaries);
 
             detailBody.innerHTML = `
                 <div class="execution-detail-content">
@@ -793,9 +1160,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="summary-label">Duration</span>
                         </div>
                     </div>
-                    ${classSummaryHtml}
-                    <div class="class-results">
-                        ${classResultsHtml}
+                    <div class="class-results-section">
+                        <div class="class-results-title">클래스별 상세 결과</div>
+                        <div class="class-results">
+                            ${classResultsHtml}
+                        </div>
                     </div>
                 </div>
             `;
