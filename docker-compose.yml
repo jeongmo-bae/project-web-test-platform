@@ -10,8 +10,11 @@ services:
       LICENSE: "accept"
       DB2INST1_PASSWORD: "db2inst1"
       DBNAME: "db2inst1"
+      TZ: "Asia/Seoul"
     volumes:
       - db2_data:/database
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
 volumes:
   db2_data:

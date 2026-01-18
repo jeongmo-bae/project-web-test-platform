@@ -14,6 +14,7 @@ import testauto.dto.ClassDetailDto;
 import testauto.dto.TestExecutionRequest;
 import testauto.dto.TestExecutionResponse;
 import testauto.dto.TreeNodeDto;
+import testauto.repository.TestExecutionRepository;
 import testauto.service.TestCatalogService;
 import testauto.service.TestExecutionService;
 import testauto.service.TestTreeService;
@@ -32,6 +33,7 @@ public class TestApiController {
     private final TestCatalogService testCatalogService;
     private final TestExecutionService testExecutionService;
     private final SourceCodeService sourceCodeService;
+    private final TestExecutionRepository testExecutionRepository;
 
     @GetMapping("/tree")
     public ResponseEntity<TreeNodeDto> getTestTree() {
@@ -99,6 +101,15 @@ public class TestApiController {
     public record TestResultsResponse(TestSummary summary, List<TestResult> results) {}
     public record MethodCodeResponse(String code) {}
     public record ServerTimeResponse(String today) {}
+    public record AuthCheckResponse(boolean authorized, String message) {}
+
+    @GetMapping("/check-auth")
+    public ResponseEntity<AuthCheckResponse> checkAuthorization(HttpServletRequest httpRequest) {
+        String requesterIp = getClientIp(httpRequest);
+        boolean authorized = testExecutionRepository.isAuthorizedUser(requesterIp);
+        String message = authorized ? "권한이 확인되었습니다." : "담당자가 아닙니다. 캠페인 팀으로 문의주세요.";
+        return ResponseEntity.ok(new AuthCheckResponse(authorized, message));
+    }
 
     @GetMapping("/server-time")
     public ResponseEntity<ServerTimeResponse> getServerTime() {

@@ -24,3 +24,4 @@ CREATE INDEX c_test_execution_idx2 ON bng000a.c_test_execution (status);
 -- ALTER TABLE bng000a.c_test_execution ADD COLUMN status VARCHAR(20) DEFAULT 'RUNNING';
 
 -- DROP TABLE bng000a.c_test_execution;
+select * from bng000a.c_test_execution;

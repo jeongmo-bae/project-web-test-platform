@@ -24,4 +24,7 @@ public interface TestExecutionRepository {
     List<Map<String, Object>> getWeeklyTrend();
     List<Map<String, Object>> getRecentFailures(int limit);
     int getTotalTestClasses();
+
+    // Authorization
+    boolean isAuthorizedUser(String ip);
 }

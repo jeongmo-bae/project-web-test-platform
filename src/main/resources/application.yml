@@ -26,7 +26,7 @@ server:
   port: 9898
 
 testcode:
-  project-path: ${TESTCODE_PROJECT_PATH:/Users/jungmo/Desktop/local-repo/github/testcodes}
+  project-path: ${TESTCODE_PROJECT_PATH:/Users/jungmo/Desktop/wd/local-repo/kb/project/project-web-test-platform-testcodes}
   root-package: ${TESTCODE_ROOT_PACKAGE:testauto.testcode}
 
 logging:

@@ -93,7 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ===== 대시보드 로드 ===== */
     async function loadDashboard() {
         try {
-            const response = await fetch('/api/tests/dashboard');
+            const response = await fetch('/api/tests/dashboard', {
+                cache: 'no-store'
+            });
             const data = await response.json();
             dashboardCache = data;
             renderDashboard(data);
@@ -156,8 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h1>Dashboard</h1>
                     <p>Test execution overview and statistics</p>
                 </div>
-                <button class="dashboard-refresh-btn" onclick="dashboardCache = null; loadDashboard();" title="Refresh Dashboard">
-                    &#x1F504;
+                <button class="dashboard-refresh-btn" onclick="refreshDashboard();" title="Refresh Dashboard">
+                    ↻
                 </button>
             </div>
 
@@ -205,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="dashboard-card-body" id="testSummaryContent">
                         <div class="test-summary-empty">
                             <div class="test-summary-empty-icon">&#128196;</div>
-                            <p>좌측에서 테스트 클래스를 선택하세요</p>
+                            <p>Select a test class from the left panel</p>
                         </div>
                     </div>
                 </div>
@@ -287,8 +289,12 @@ document.addEventListener('DOMContentLoaded', () => {
             '--col-time'
         ];
 
+        // 최소 너비 설정 (클래스 컬럼은 제외)
+        const minWidths = [40, 80, 35, 40, 35, 35, 50, 60, 70];
+
         columns.forEach((col, index) => {
             if (index >= columns.length - 1) return; // 마지막 컬럼은 리사이즈 안함
+            if (index === 1) return; // 클래스 컬럼(1fr)은 리사이즈 안함
 
             col.addEventListener('mousedown', (e) => {
                 const rect = col.getBoundingClientRect();
@@ -300,10 +306,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const startX = e.clientX;
                 const startWidth = col.offsetWidth;
+                const gridWidth = grid.offsetWidth;
+
+                // 현재 고정 컬럼들의 총 너비 계산 (클래스 컬럼 제외)
+                let fixedColumnsWidth = 0;
+                columns.forEach((c, i) => {
+                    if (i !== 1) { // 클래스 컬럼 제외
+                        fixedColumnsWidth += c.offsetWidth;
+                    }
+                });
+
+                // 클래스 컬럼의 최소 너비 (80px)
+                const minClassWidth = 80;
+                // 패딩 등 여유 공간
+                const padding = 24;
 
                 const onMouseMove = (moveEvent) => {
                     const dx = moveEvent.clientX - startX;
-                    const newWidth = Math.max(40, startWidth + dx);
+                    let newWidth = startWidth + dx;
+
+                    // 최소 너비 제한
+                    newWidth = Math.max(minWidths[index], newWidth);
+
+                    // 최대 너비 제한: 클래스 컬럼이 최소 너비 이상 유지되도록
+                    const otherFixedWidth = fixedColumnsWidth - startWidth;
+                    const maxWidth = gridWidth - otherFixedWidth - minClassWidth - padding;
+                    newWidth = Math.min(maxWidth, newWidth);
+
                     grid.style.setProperty(columnVars[index], newWidth + 'px');
                 };
 
@@ -533,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryContent.innerHTML = `
                 <div class="test-summary-empty">
                     <div class="test-summary-empty-icon">&#128196;</div>
-                    <p>좌측에서 테스트 클래스를 선택하세요</p>
+                    <p>Select a test class from the left panel</p>
                 </div>
             `;
         }
@@ -571,6 +600,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('')}</ul>`;
     }
 
+    /* ===== 권한 체크 ===== */
+    async function checkAuthorization() {
+        try {
+            const response = await fetch('/api/tests/check-auth');
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Failed to check authorization:', error);
+            return { authorized: false, message: '권한 확인 중 오류가 발생했습니다.' };
+        }
+    }
+
     /* ===== Run 버튼 클릭 ===== */
     runButton.addEventListener('click', async function() {
         if (selectedClasses.size === 0) return;
@@ -580,6 +621,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // 확인 다이얼로그
         if (!confirm('실행하시겠습니까?')) {
             return; // No 선택 시 아무것도 안함
+        }
+
+        // 권한 체크
+        const authResult = await checkAuthorization();
+        if (!authResult.authorized) {
+            alert(authResult.message);
+            return;
         }
 
         // 선택 즉시 초기화
@@ -780,6 +828,13 @@ document.addEventListener('DOMContentLoaded', () => {
     /* ===== 테스트 실행 이력 로드 (게시판 형태) ===== */
     async function loadTestResults() {
         try {
+            // 디폴트 날짜 설정 (1주일전 ~ 당일)
+            if (!filterState.dateFrom && !filterState.dateTo) {
+                const dates = await fetchServerDates();
+                filterState.dateFrom = dates.weekAgo;
+                filterState.dateTo = dates.today;
+            }
+
             const response = await fetch('/api/tests/executions?limit=50');
             const executions = await response.json();
             executionListCache = executions;
@@ -798,26 +853,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 필터 상태
     let filterState = {
-        date: '',
-        ip: '',
+        dateFrom: '',
+        dateTo: '',
+        requesterName: '',
         className: '',
         status: ''
     };
 
     // 서버 시간 기준 오늘 날짜 (API에서 받아옴)
     let serverToday = null;
+    let serverWeekAgo = null;
 
-    async function fetchServerToday() {
-        if (serverToday) return serverToday;
+    async function fetchServerDates() {
+        if (serverToday && serverWeekAgo) return { today: serverToday, weekAgo: serverWeekAgo };
         try {
             const response = await fetch('/api/tests/server-time');
             const data = await response.json();
             serverToday = data.today;
-            return serverToday;
+            // 1주일 전 계산
+            const todayDate = new Date(serverToday);
+            todayDate.setDate(todayDate.getDate() - 7);
+            serverWeekAgo = todayDate.toISOString().split('T')[0];
+            return { today: serverToday, weekAgo: serverWeekAgo };
         } catch (error) {
             console.error('Failed to fetch server time:', error);
-            return new Date().toISOString().split('T')[0];
+            const today = new Date().toISOString().split('T')[0];
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            return { today, weekAgo };
         }
+    }
+
+    async function fetchServerToday() {
+        const dates = await fetchServerDates();
+        return dates.today;
     }
 
     function renderExecutionListView(executions) {
@@ -832,35 +900,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         testResultsContent.innerHTML = `
             <div class="result-filters">
-                <div class="filter-group">
-                    <label class="filter-label">실행 날짜</label>
-                    <div class="filter-date-wrapper">
-                        <input type="date" class="filter-date" id="filterDate" value="${filterState.date}" lang="ko">
-                        <div class="today-checkbox-wrapper">
-                            <input type="checkbox" id="filterToday" ${filterState.date && serverToday && filterState.date === serverToday ? 'checked' : ''}>
-                            <label for="filterToday">오늘</label>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label class="filter-label">실행 날짜</label>
+                        <div class="filter-date-range">
+                            <input type="date" class="filter-date" id="filterDateFrom" value="${filterState.dateFrom}" lang="ko">
+                            <span class="filter-date-separator">~</span>
+                            <input type="date" class="filter-date" id="filterDateTo" value="${filterState.dateTo}" lang="ko">
                         </div>
                     </div>
                 </div>
-                <div class="filter-group">
-                    <label class="filter-label">요청 IP</label>
-                    <input type="text" class="filter-input" id="filterIp" placeholder="IP 주소" value="${filterState.ip}">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label class="filter-label">요청자</label>
+                        <input type="text" class="filter-input" id="filterRequesterName" placeholder="요청자명" value="${filterState.requesterName}">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">클래스명</label>
+                        <input type="text" class="filter-input" id="filterClassName" placeholder="클래스명 검색" value="${filterState.className}">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">상태</label>
+                        <select class="filter-select" id="filterStatus">
+                            <option value="">전체</option>
+                            <option value="RUNNING" ${filterState.status === 'RUNNING' ? 'selected' : ''}>수행중</option>
+                            <option value="SUCCESS" ${filterState.status === 'SUCCESS' ? 'selected' : ''}>정상</option>
+                            <option value="FAILED" ${filterState.status === 'FAILED' ? 'selected' : ''}>실패</option>
+                        </select>
+                    </div>
+                    <button class="filter-search-btn" id="filterSearchBtn">검색</button>
+                    <button class="filter-clear-btn" id="filterClearBtn">초기화</button>
                 </div>
-                <div class="filter-group">
-                    <label class="filter-label">클래스명</label>
-                    <input type="text" class="filter-input" id="filterClassName" placeholder="클래스명 검색" value="${filterState.className}">
-                </div>
-                <div class="filter-group">
-                    <label class="filter-label">상태</label>
-                    <select class="filter-select" id="filterStatus">
-                        <option value="">전체</option>
-                        <option value="RUNNING" ${filterState.status === 'RUNNING' ? 'selected' : ''}>수행중</option>
-                        <option value="SUCCESS" ${filterState.status === 'SUCCESS' ? 'selected' : ''}>정상</option>
-                        <option value="FAILED" ${filterState.status === 'FAILED' ? 'selected' : ''}>실패</option>
-                    </select>
-                </div>
-                <button class="filter-search-btn" id="filterSearchBtn">검색</button>
-                <button class="filter-clear-btn" id="filterClearBtn">초기화</button>
             </div>
             <div class="execution-list-container">
                 <div class="execution-list-panel" id="executionListPanel">
@@ -903,41 +973,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function bindFilterEvents() {
-        const filterDate = document.getElementById('filterDate');
-        const filterToday = document.getElementById('filterToday');
-        const filterIp = document.getElementById('filterIp');
+        const filterDateFrom = document.getElementById('filterDateFrom');
+        const filterDateTo = document.getElementById('filterDateTo');
+        const filterRequesterName = document.getElementById('filterRequesterName');
         const filterClassName = document.getElementById('filterClassName');
         const filterStatus = document.getElementById('filterStatus');
         const filterSearchBtn = document.getElementById('filterSearchBtn');
         const filterClearBtn = document.getElementById('filterClearBtn');
         const executionRefreshBtn = document.getElementById('executionRefreshBtn');
 
-        // 날짜 필터 값 변경 시 (검색은 안함, 값만 업데이트)
-        filterDate.addEventListener('change', () => {
-            filterToday.checked = serverToday && filterDate.value === serverToday;
-        });
-
-        // 오늘 체크박스
-        filterToday.addEventListener('change', async () => {
-            if (filterToday.checked) {
-                const today = await fetchServerToday();
-                filterDate.value = today;
-            } else {
-                filterDate.value = '';
-            }
-        });
-
         // 검색 버튼 - 필터 적용
         filterSearchBtn.addEventListener('click', () => {
-            filterState.date = filterDate.value;
-            filterState.ip = filterIp.value;
+            filterState.dateFrom = filterDateFrom.value;
+            filterState.dateTo = filterDateTo.value;
+            filterState.requesterName = filterRequesterName.value;
             filterState.className = filterClassName.value;
             filterState.status = filterStatus.value;
             renderExecutionListView(executionListCache);
         });
 
         // Enter 키로 검색
-        [filterDate, filterIp, filterClassName].forEach(input => {
+        [filterDateFrom, filterDateTo, filterRequesterName, filterClassName].forEach(input => {
             input.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     filterSearchBtn.click();
@@ -945,9 +1001,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // 초기화 버튼
-        filterClearBtn.addEventListener('click', () => {
-            filterState = { date: '', ip: '', className: '', status: '' };
+        // 초기화 버튼 - 1주일전~당일로 리셋
+        filterClearBtn.addEventListener('click', async () => {
+            const dates = await fetchServerDates();
+            filterState = { dateFrom: dates.weekAgo, dateTo: dates.today, requesterName: '', className: '', status: '' };
             renderExecutionListView(executionListCache);
         });
 
@@ -999,16 +1056,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applyFilters(executions) {
         return executions.filter(exec => {
-            // 날짜 필터
-            if (filterState.date) {
-                const execDate = exec.startedAt ? exec.startedAt.split('T')[0] : '';
-                if (execDate !== filterState.date) return false;
-            }
+            // 날짜 범위 필터
+            const execDate = exec.startedAt ? exec.startedAt.split('T')[0] : '';
+            if (filterState.dateFrom && execDate < filterState.dateFrom) return false;
+            if (filterState.dateTo && execDate > filterState.dateTo) return false;
 
-            // IP 필터
-            if (filterState.ip) {
-                const ip = exec.requesterIp || '';
-                if (!ip.toLowerCase().includes(filterState.ip.toLowerCase())) return false;
+            // 요청자명 필터
+            if (filterState.requesterName) {
+                const name = exec.requesterName || '';
+                if (!name.toLowerCase().includes(filterState.requesterName.toLowerCase())) return false;
             }
 
             // 클래스명 필터
@@ -1314,7 +1370,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.selectExecution = selectExecution;
     window.switchView = switchView;
     window.loadDashboard = loadDashboard;
-    window.dashboardCache = null;
+    window.refreshDashboard = function() {
+        dashboardCache = null;
+        loadDashboard();
+    };
 
     // 재실행 함수
     window.rerunExecution = async function(executionId) {
@@ -1327,6 +1386,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const classNames = execution.classNames.split(',').filter(c => c.trim());
         if (classNames.length === 0) {
             alert('Cannot rerun: no classes found');
+            return;
+        }
+
+        // 확인 다이얼로그
+        if (!confirm('재실행 하시겠습니까?')) {
+            return;
+        }
+
+        // 권한 체크
+        const authResult = await checkAuthorization();
+        if (!authResult.authorized) {
+            alert(authResult.message);
             return;
         }
 

@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import testauto.runner.TestRunner;
 
+import jakarta.annotation.PostConstruct;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -16,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -29,6 +32,23 @@ public class ProcessExecutorService {
     @Value("${testcode.project-path}")
     private String testcodeProjectPath;
 
+    // 애플리케이션 시작 시점의 JAVA_HOME을 캡처
+    private String capturedJavaHome;
+
+    @PostConstruct
+    public void init() {
+        // 1순위: 환경변수 JAVA_HOME
+        capturedJavaHome = System.getenv("JAVA_HOME");
+
+        // 2순위: 현재 JVM의 java.home 시스템 프로퍼티
+        if (capturedJavaHome == null || capturedJavaHome.isBlank()) {
+            capturedJavaHome = System.getProperty("java.home");
+            log.info("JAVA_HOME 환경변수가 없어서 java.home 시스템 프로퍼티 사용: {}", capturedJavaHome);
+        } else {
+            log.info("캡처된 JAVA_HOME: {}", capturedJavaHome);
+        }
+    }
+
     /**
      * Gradle로 테스트 코드 컴파일
      */
@@ -37,6 +57,9 @@ public class ProcessExecutorService {
 
         ProcessBuilder pb = new ProcessBuilder();
         pb.directory(new File(testcodeProjectPath));
+
+        // 캡처된 JAVA_HOME 환경변수 설정
+        setJavaHomeEnv(pb);
 
         // OS에 따라 gradle wrapper 또는 gradle 사용
         String gradleCommand = isWindows() ? "gradlew.bat" : "./gradlew";
@@ -161,6 +184,10 @@ public class ProcessExecutorService {
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(new File(testcodeProjectPath));
+
+        // 캡처된 JAVA_HOME 환경변수 설정
+        setJavaHomeEnv(pb);
+
         pb.redirectErrorStream(true);
 
         Process process = pb.start();
@@ -208,12 +235,20 @@ public class ProcessExecutorService {
     }
 
     private String getJavaExecutable() {
-        String javaHome = System.getProperty("java.home");
-        String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
+        // 캡처된 JAVA_HOME 사용
+        String javaBin = capturedJavaHome + File.separator + "bin" + File.separator + "java";
         if (isWindows()) {
             javaBin += ".exe";
         }
         return javaBin;
+    }
+
+    private void setJavaHomeEnv(ProcessBuilder pb) {
+        if (capturedJavaHome != null && !capturedJavaHome.isBlank()) {
+            Map<String, String> env = pb.environment();
+            env.put("JAVA_HOME", capturedJavaHome);
+            log.debug("ProcessBuilder JAVA_HOME 설정: {}", capturedJavaHome);
+        }
     }
 
     private boolean isWindows() {

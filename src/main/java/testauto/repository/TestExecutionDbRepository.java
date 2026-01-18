@@ -170,9 +170,9 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     @Override
     public List<TestExecution> findRecentExecutions(int limit) {
         String sql = """
-                SELECT e.*, m.emp_name AS requester_name
+                SELECT e.*, m.EMPNM AS requester_name
                 FROM bng000a.c_test_execution e
-                LEFT JOIN bng000a.c_morning_monitor_manager m ON e.requester_ip = m.emp_ip
+                LEFT JOIN bng000a.c_morning_monitor_manager m ON e.requester_ip = m.EMPIP
                 ORDER BY e.started_at DESC
                 FETCH FIRST ? ROWS ONLY
                 """;
@@ -199,13 +199,15 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     public Map<String, Object> getTodayStats() {
         String sql = """
                 SELECT
-                    COUNT(*) as total_executions,
-                    COALESCE(SUM(total_tests), 0) as total_tests,
-                    COALESCE(SUM(success_count), 0) as success_count,
-                    COALESCE(SUM(failed_count), 0) as failed_count,
-                    COALESCE(SUM(skipped_count), 0) as skipped_count
+                    COUNT(*) as "total_executions",
+                    COALESCE(SUM(total_tests), 0) as "total_tests",
+                    COALESCE(SUM(success_count), 0) as "success_count",
+                    COALESCE(SUM(failed_count), 0) as "failed_count",
+                    COALESCE(SUM(skipped_count), 0) as "skipped_count"
                 FROM bng000a.c_test_execution
-                WHERE DATE(started_at) = CURRENT DATE AND status = 'COMPLETED'
+                WHERE started_at >= CURRENT DATE
+                  AND started_at < CURRENT DATE + 1 DAY
+                  AND status <> 'RUNNING'
                 """;
         return jdbcTemplate.queryForMap(sql);
     }
@@ -214,12 +216,12 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     public List<Map<String, Object>> getWeeklyTrend() {
         String sql = """
                 SELECT
-                    DATE(started_at) as date,
-                    COUNT(*) as executions,
-                    COALESCE(SUM(success_count), 0) as success_count,
-                    COALESCE(SUM(failed_count), 0) as failed_count
+                    DATE(started_at) as "date",
+                    COUNT(*) as "executions",
+                    COALESCE(SUM(success_count), 0) as "success_count",
+                    COALESCE(SUM(failed_count), 0) as "failed_count"
                 FROM bng000a.c_test_execution
-                WHERE started_at >= CURRENT DATE - 6 DAYS AND status = 'COMPLETED'
+                WHERE started_at >= CURRENT DATE - 6 DAYS AND status <> 'RUNNING'
                 GROUP BY DATE(started_at)
                 ORDER BY DATE(started_at)
                 """;
@@ -230,10 +232,10 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
     public List<Map<String, Object>> getRecentFailures(int limit) {
         String sql = """
                 SELECT
-                    r.display_name,
-                    r.error_message,
-                    e.started_at,
-                    e.execution_id
+                    r.display_name as "display_name",
+                    r.error_message as "error_message",
+                    e.started_at as "started_at",
+                    e.execution_id as "execution_id"
                 FROM bng000a.c_test_result r
                 JOIN bng000a.c_test_execution e ON r.execution_id = e.execution_id
                 WHERE r.status = 'FAILED'
@@ -248,5 +250,12 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
         String sql = "SELECT COUNT(DISTINCT classname) FROM bng000a.C_TEST_NODE_CATALOG WHERE type = 'CONTAINER' AND classname IS NOT NULL AND unique_id NOT LIKE '%[nested-class:%'";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
         return count != null ? count : 0;
+    }
+
+    @Override
+    public boolean isAuthorizedUser(String ip) {
+        String sql = "SELECT COUNT(*) FROM bng000a.c_morning_monitor_manager WHERE EMPIP = ? AND ACTIVE_YN = '1'";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, ip);
+        return count != null && count > 0;
     }
 }

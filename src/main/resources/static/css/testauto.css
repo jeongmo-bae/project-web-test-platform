@@ -303,7 +303,7 @@ body {
 .tree-node {
     display: flex;
     align-items: flex-start;
-    gap: 4px;
+    gap: 2px;
     padding: 4px 6px;
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -368,7 +368,7 @@ body {
 }
 
 .class-checkbox {
-    margin-right: 4px;
+    margin-right: 2px;
     margin-top: 3px;
     cursor: pointer;
     flex-shrink: 0;
@@ -473,13 +473,16 @@ body {
 }
 
 .dashboard-refresh-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
     background: var(--bg-subtle);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 8px 12px;
+    border-radius: var(--radius-sm);
     font-size: 16px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.2s;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -488,10 +491,13 @@ body {
 .dashboard-refresh-btn:hover {
     background: var(--bg-default);
     border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    transform: rotate(15deg);
 }
 
-.dashboard-refresh-btn:active {
-    transform: scale(0.95);
+.dashboard-refresh-btn.loading {
+    animation: spin 0.8s linear infinite;
+    pointer-events: none;
 }
 
 .dashboard-grid {
@@ -624,15 +630,17 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0;
-    --col-status: 70px;
+    width: 100%;
+    overflow: hidden;
+    --col-status: 60px;
     --col-class: 1fr;
     --col-totals: 50px;
     --col-successes: 60px;
     --col-failures: 50px;
-    --col-skipped: 55px;
-    --col-duration: 80px;
-    --col-requester: 90px;
-    --col-time: 100px;
+    --col-skipped: 50px;
+    --col-duration: 70px;
+    --col-requester: 80px;
+    --col-time: 95px;
 }
 
 .recent-exec-header,
@@ -640,7 +648,7 @@ body {
     display: grid;
     grid-template-columns:
         var(--col-status)
-        var(--col-class)
+        minmax(0, var(--col-class))
         var(--col-totals)
         var(--col-successes)
         var(--col-failures)
@@ -651,12 +659,14 @@ body {
     gap: 0;
     padding: 10px 12px;
     align-items: center;
+    width: 100%;
+    min-width: 0;
 }
 
 .recent-exec-header {
     background: var(--bg-subtle);
     font-weight: 600;
-    color: var(--text-muted);
+    color: var(--text-default);
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -664,6 +674,19 @@ body {
     font-size: 11px;
     position: relative;
     padding-right: 8px;
+    text-align: center;
+}
+
+.recent-exec-header .recent-exec-successes {
+    color: var(--accent-green);
+}
+
+.recent-exec-header .recent-exec-failures {
+    color: var(--accent-red);
+}
+
+.recent-exec-header .recent-exec-skipped {
+    color: var(--accent-yellow);
 }
 
 .recent-exec-header > div:not(:last-child)::after {
@@ -706,9 +729,9 @@ body {
 }
 
 .recent-exec-item .recent-exec-status {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
     text-align: center;
 }
@@ -1767,12 +1790,18 @@ body {
 /* Filters */
 .result-filters {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 12px;
     padding: 16px;
     background: var(--bg-default);
     border-bottom: 1px solid var(--border-color);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     align-items: flex-end;
 }
 
@@ -1780,6 +1809,17 @@ body {
     display: flex;
     flex-direction: column;
     gap: 4px;
+}
+
+.filter-date-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-date-separator {
+    color: var(--text-muted);
+    font-size: 12px;
 }
 
 .filter-label {
