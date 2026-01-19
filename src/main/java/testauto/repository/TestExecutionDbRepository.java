@@ -207,7 +207,6 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                 FROM bng000a.c_test_execution
                 WHERE started_at >= CURRENT DATE
                   AND started_at < CURRENT DATE + 1 DAY
-                  AND status <> 'RUNNING'
                 """;
         return jdbcTemplate.queryForMap(sql);
     }
@@ -221,7 +220,8 @@ public class TestExecutionDbRepository implements TestExecutionRepository {
                     COALESCE(SUM(success_count), 0) as "success_count",
                     COALESCE(SUM(failed_count), 0) as "failed_count"
                 FROM bng000a.c_test_execution
-                WHERE started_at >= CURRENT DATE - 6 DAYS AND status <> 'RUNNING'
+                WHERE started_at >= CURRENT DATE - 6 DAYS 
+                  AND status <> 'RUNNING'
                 GROUP BY DATE(started_at)
                 ORDER BY DATE(started_at)
                 """;

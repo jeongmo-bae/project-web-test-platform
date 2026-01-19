@@ -94,7 +94,7 @@
 
 ## 3. 구현 상세
 
-### 3.1 ProcessExecutorService.java
+### 3.1 ProcessExecutorService.java (autotest-app 모듈)
 
 ```java
 @Service
@@ -102,6 +102,9 @@ public class ProcessExecutorService {
 
     @Value("${testcode.project-path}")
     private String testcodeProjectPath;
+
+    // autotest-runner.jar 경로
+    private String runnerJarPath;
 
     /**
      * 테스트 코드 컴파일
@@ -278,7 +281,7 @@ public class ProcessExecutorService {
 }
 ```
 
-### 3.2 TestRunner.java (별도 JVM에서 실행)
+### 3.2 TestRunner.java (autotest-runner 모듈, 별도 JVM에서 실행)
 
 ```java
 public class TestRunner {

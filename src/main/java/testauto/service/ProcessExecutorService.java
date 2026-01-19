@@ -64,11 +64,20 @@ public class ProcessExecutorService {
         // OS에 따라 gradle wrapper 또는 gradle 사용
         String gradleCommand = isWindows() ? "gradlew.bat" : "./gradlew";
         File gradleWrapper = new File(testcodeProjectPath, isWindows() ? "gradlew.bat" : "gradlew");
+        String gradleJavaHomeProp = "-Dorg.gradle.java.home=" + capturedJavaHome;
 
         if (gradleWrapper.exists()) {
-            pb.command(gradleCommand, "compileJava", "--quiet");
+            pb.command(gradleCommand,
+                    "--no-daemon",
+                    gradleJavaHomeProp,
+                    "compileJava",
+                    "--quiet");
         } else {
-            pb.command("gradle", "compileJava", "--quiet");
+            pb.command("gradle",
+                    "--no-daemon",
+                    gradleJavaHomeProp,
+                    "compileJava",
+                    "--quiet");
         }
 
         pb.redirectErrorStream(true);
@@ -146,10 +155,17 @@ public class ProcessExecutorService {
 
     private String buildClasspath() throws Exception {
         List<String> paths = new ArrayList<>();
+        String sep = isWindows() ? ";" : ":";
 
         // 1. 현재 애플리케이션의 classpath (TestRunner 클래스 포함)
         String currentClasspath = System.getProperty("java.class.path");
-        paths.add(currentClasspath);
+        Path baseDir = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        for (String entry : currentClasspath.split(java.util.regex.Pattern.quote(sep))) {
+            if (entry == null || entry.isBlank()) continue;
+            Path p = Path.of(entry);
+            Path abs = p.isAbsolute() ? p : baseDir.resolve(p);
+            paths.add(abs.toAbsolutePath().normalize().toString());
+        }
 
         // 2. 테스트 코드 프로젝트의 컴파일된 클래스
         Path testClassesPath = Path.of(testcodeProjectPath, "build", "classes", "java", "main");
@@ -183,7 +199,7 @@ public class ProcessExecutorService {
         log.debug("Executing command: {}", String.join(" ", command));
 
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.directory(new File(testcodeProjectPath));
+//        pb.directory(new File(testcodeProjectPath));
 
         // 캡처된 JAVA_HOME 환경변수 설정
         setJavaHomeEnv(pb);

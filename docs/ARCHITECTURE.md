@@ -4,6 +4,51 @@
 
 ---
 
+## 0. 멀티 모듈 구조
+
+프로젝트는 Gradle 멀티 모듈로 구성되어 있습니다.
+
+```
+autotest/
+├── autotest-app/        # 메인 Spring Boot 애플리케이션
+│   └── Spring Boot, Thymeleaf, JDBC, JavaParser
+│
+└── autotest-runner/     # 별도 JVM 테스트 실행기
+    └── JUnit Platform Launcher, Jackson (Shadow JAR)
+```
+
+| 모듈 | 역할 | 주요 의존성 |
+|------|------|------------|
+| `autotest-app` | 웹 UI, REST API, 비즈니스 로직 | Spring Boot 3.5.7, Thymeleaf, DB2 JDBC |
+| `autotest-runner` | 별도 JVM에서 테스트 발견/실행 | JUnit Platform Launcher 1.11.4, Jackson |
+
+### 모듈 간 관계
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        autotest-app                              │
+│                                                                  │
+│   ProcessExecutorService                                         │
+│         │                                                        │
+│         │  java -jar autotest-runner.jar                         │
+│         ▼                                                        │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                   autotest-runner                        │   │
+│   │                                                          │   │
+│   │   TestRunner.main(args)                                  │   │
+│   │     └── JUnit Platform Launcher API                      │   │
+│   │                                                          │   │
+│   │   stdout → JSON 결과 출력                                 │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│         │                                                        │
+│         │  JSON 파싱                                             │
+│         ▼                                                        │
+│   결과 DB 저장                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 1. 전체 시스템 구조
 
 ```
@@ -90,15 +135,22 @@ public class TestApiController {
 }
 ```
 
-### 2.2 Service Layer
+### 2.2 Service Layer (autotest-app)
 
 | 클래스 | 책임 | 의존성 |
 |--------|------|--------|
 | `TestCatalogServiceImpl` | 테스트 발견 및 카탈로그 관리 | ProcessExecutorService, TestNodeRepository |
 | `TestExecutionServiceImpl` | 테스트 실행 (비동기), 대시보드 통계 | ProcessExecutorService, TestExecutionRepository |
-| `ProcessExecutorService` | 별도 JVM 프로세스 실행 | - |
+| `ProcessExecutorService` | 별도 JVM 프로세스 실행 (autotest-runner 호출) | - |
 | `TestTreeServiceImpl` | 트리 구조 변환 | TestNodeRepository |
 | `SourceCodeService` | 소스 코드 추출 | JavaParser |
+
+### 2.2.1 Runner Layer (autotest-runner)
+
+| 클래스 | 책임 | 위치 |
+|--------|------|------|
+| `TestRunner` | 별도 JVM 메인 클래스 (discover/run 명령) | autotest-runner 모듈 |
+| `TestRunnerListener` | JUnit TestExecutionListener 구현, 결과 수집 | autotest-runner 모듈 |
 
 ### 2.3 Repository Layer
 

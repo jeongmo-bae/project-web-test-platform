@@ -174,6 +174,8 @@ public class MyListener implements TestExecutionListener {
 
 ## 3. 프로젝트에서의 활용
 
+> **Note**: 아래 코드들은 `autotest-runner` 모듈에 위치합니다.
+
 ### 3.1 테스트 발견 (TestRunner.java)
 
 ```java
@@ -494,20 +496,34 @@ LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
 
 ## 7. 의존성 설정
 
-### build.gradle.kts
+### autotest-runner/build.gradle.kts
 
 ```kotlin
+plugins {
+    id("com.github.johnrengelman.shadow") version "8.1.1"
+}
+
 dependencies {
     // JUnit Platform Launcher API (필수)
-    implementation("org.junit.platform:junit-platform-launcher")
+    implementation("org.junit.platform:junit-platform-launcher:1.11.4")
 
     // JUnit Jupiter Engine (JUnit 5 테스트 실행)
-    implementation("org.junit.jupiter:junit-jupiter-engine")
+    implementation("org.junit.jupiter:junit-jupiter-engine:5.11.4")
 
-    // JUnit Jupiter API (테스트 작성)
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    // JSON 직렬화
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+}
+
+// Shadow JAR로 모든 의존성 포함
+tasks.shadowJar {
+    archiveBaseName.set("autotest-runner")
+    archiveClassifier.set("")
+    mergeServiceFiles()  // JUnit 엔진 SPI 파일 병합 필수!
 }
 ```
+
+> **중요**: `mergeServiceFiles()`는 JUnit Platform이 엔진을 찾을 수 있도록
+> `META-INF/services/` 파일들을 병합합니다.
 
 ### Maven (pom.xml)
 
@@ -516,12 +532,12 @@ dependencies {
     <dependency>
         <groupId>org.junit.platform</groupId>
         <artifactId>junit-platform-launcher</artifactId>
-        <version>1.10.2</version>
+        <version>1.11.4</version>
     </dependency>
     <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter-engine</artifactId>
-        <version>5.10.2</version>
+        <version>5.11.4</version>
     </dependency>
 </dependencies>
 ```

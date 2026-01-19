@@ -35,56 +35,62 @@ JUnit 5 Platform 기반의 웹 테스트 자동화 플랫폼입니다. 웹 UI에
 
 ## 프로젝트 구조
 
+멀티 모듈 Gradle 프로젝트로 구성되어 있습니다.
+
 ```
 autotest/
-├── src/main/java/testauto/
-│   ├── TestAutoApplication.java        # Spring Boot 진입점 (@EnableAsync)
-│   ├── TestCatalogInitializer.java     # 시작 시 테스트 카탈로그 초기화
-│   │
-│   ├── controller/                     # REST API & 웹 컨트롤러
-│   │   ├── TestApiController.java      # REST API 엔드포인트
-│   │   ├── TestPlatformMainController.java
-│   │   └── TestResultController.java
-│   │
-│   ├── service/                        # 비즈니스 로직
-│   │   ├── TestCatalogService.java     # 테스트 발견 및 카탈로그
-│   │   ├── TestExecutionService.java   # 테스트 실행 (비동기)
-│   │   ├── ProcessExecutorService.java # 별도 JVM 프로세스 실행
-│   │   ├── TestTreeService.java        # 트리 구조 생성
-│   │   └── SourceCodeService.java      # 소스 코드 추출
-│   │
-│   ├── repository/                     # 데이터 접근 계층
-│   │   ├── TestNodeRepository.java
-│   │   ├── TestNodeDbRepository.java
-│   │   ├── TestNodeMemoryRepository.java
-│   │   ├── TestExecutionRepository.java
-│   │   └── TestExecutionDbRepository.java
-│   │
-│   ├── domain/                         # 도메인 모델
-│   │   ├── TestNode.java               # 발견된 테스트 노드
-│   │   ├── TestExecution.java          # 실행 이력
-│   │   ├── TestResult.java             # 결과 (트리 구조)
-│   │   ├── TestResultRecord.java       # 결과 레코드 (DB 매핑)
-│   │   ├── TestSummary.java            # 결과 요약
-│   │   └── TestStatus.java             # 상태 Enum
-│   │
-│   ├── dto/                            # 데이터 전송 객체
-│   │   ├── TreeNodeDto.java
-│   │   ├── ClassDetailDto.java
-│   │   ├── TestMethodDto.java
-│   │   ├── TestExecutionRequest.java
-│   │   └── TestExecutionResponse.java
-│   │
-│   ├── exception/                      # 예외 처리
-│   │   ├── GlobalExceptionHandler.java # 전역 예외 핸들러
-│   │   └── ErrorResponse.java          # 에러 응답 DTO
-│   │
-│   ├── runner/                         # 별도 JVM 테스트 실행기
-│   │   ├── TestRunner.java             # 별도 JVM 메인 클래스
-│   │   └── TestRunnerListener.java     # TestExecutionListener 구현
-│   │
-│   └── util/junit/
-│       └── WebTestListener.java        # 웹앱용 TestExecutionListener
+├── build.gradle.kts                    # 루트 빌드 설정 (공통 설정)
+├── settings.gradle.kts                 # 모듈 정의
+│
+├── autotest-app/                       # 메인 Spring Boot 애플리케이션
+│   ├── build.gradle.kts
+│   └── src/main/java/testauto/
+│       ├── TestAutoApplication.java        # Spring Boot 진입점 (@EnableAsync)
+│       ├── TestCatalogInitializer.java     # 시작 시 테스트 카탈로그 초기화
+│       │
+│       ├── controller/                     # REST API & 웹 컨트롤러
+│       │   ├── TestApiController.java      # REST API 엔드포인트
+│       │   ├── TestPlatformMainController.java
+│       │   └── TestResultController.java
+│       │
+│       ├── service/                        # 비즈니스 로직
+│       │   ├── TestCatalogService.java     # 테스트 발견 및 카탈로그
+│       │   ├── TestExecutionService.java   # 테스트 실행 (비동기)
+│       │   ├── ProcessExecutorService.java # 별도 JVM 프로세스 실행
+│       │   ├── TestTreeService.java        # 트리 구조 생성
+│       │   └── SourceCodeService.java      # 소스 코드 추출
+│       │
+│       ├── repository/                     # 데이터 접근 계층
+│       │   ├── TestNodeRepository.java
+│       │   ├── TestNodeDbRepository.java
+│       │   ├── TestNodeMemoryRepository.java
+│       │   ├── TestExecutionRepository.java
+│       │   └── TestExecutionDbRepository.java
+│       │
+│       ├── domain/                         # 도메인 모델
+│       │   ├── TestNode.java               # 발견된 테스트 노드
+│       │   ├── TestExecution.java          # 실행 이력
+│       │   ├── TestResult.java             # 결과 (트리 구조)
+│       │   ├── TestResultRecord.java       # 결과 레코드 (DB 매핑)
+│       │   ├── TestSummary.java            # 결과 요약
+│       │   └── TestStatus.java             # 상태 Enum
+│       │
+│       ├── dto/                            # 데이터 전송 객체
+│       │   ├── TreeNodeDto.java
+│       │   ├── ClassDetailDto.java
+│       │   ├── TestMethodDto.java
+│       │   ├── TestExecutionRequest.java
+│       │   └── TestExecutionResponse.java
+│       │
+│       └── exception/                      # 예외 처리
+│           ├── GlobalExceptionHandler.java # 전역 예외 핸들러
+│           └── ErrorResponse.java          # 에러 응답 DTO
+│
+├── autotest-runner/                    # 별도 JVM 테스트 실행기 (Shadow JAR)
+│   ├── build.gradle.kts
+│   └── src/main/java/testauto/runner/
+│       ├── TestRunner.java             # 별도 JVM 메인 클래스
+│       └── TestRunnerListener.java     # TestExecutionListener 구현
 │
 ├── sql/                                # DDL 스크립트 (DB2)
 │   ├── c_test_node_catalog.ddl
@@ -97,6 +103,43 @@ autotest/
     ├── JUNIT_PLATFORM_GUIDE.md         # JUnit Platform API 가이드
     ├── HOT_RELOAD_MECHANISM.md         # Hot Reload 구현 원리
     └── API_REFERENCE.md                # REST API 레퍼런스
+```
+
+### 모듈 설명
+
+| 모듈 | 설명 | 빌드 결과 |
+|------|------|----------|
+| `autotest-app` | 메인 Spring Boot 애플리케이션 (웹 UI, REST API) | `autotest-app.jar` |
+| `autotest-runner` | 별도 JVM에서 테스트 실행하는 런너 | `autotest-runner.jar` (Shadow JAR) |
+
+---
+
+## 빌드 및 실행
+
+### 전체 빌드
+
+```bash
+./gradlew build
+```
+
+### 개별 모듈 빌드
+
+```bash
+# 메인 애플리케이션
+./gradlew :autotest-app:bootJar
+
+# 테스트 러너 (Shadow JAR)
+./gradlew :autotest-runner:shadowJar
+```
+
+### 실행
+
+```bash
+# 애플리케이션 실행
+java -jar autotest-app/build/libs/autotest-app.jar
+
+# 또는 Gradle로 실행
+./gradlew :autotest-app:bootRun
 ```
 
 ---
