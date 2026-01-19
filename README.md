@@ -26,7 +26,7 @@ JUnit 5 Platform 기반의 웹 테스트 자동화 플랫폼입니다. 웹 UI에
 | Language | Java | 17 |
 | Test Engine | JUnit Platform Launcher API | 5.x |
 | Test Framework | JUnit Jupiter | 5.x |
-| Database | MySQL + HikariCP | 8.x |
+| Database | DB2 + HikariCP | 11.5.x |
 | Template | Thymeleaf | - |
 | Build | Gradle (Kotlin DSL) | 8.x |
 | Code Parsing | JavaParser | 3.26.3 |
@@ -55,18 +55,29 @@ autotest/
 │   │
 │   ├── repository/                     # 데이터 접근 계층
 │   │   ├── TestNodeRepository.java
-│   │   └── TestExecutionRepository.java
+│   │   ├── TestNodeDbRepository.java
+│   │   ├── TestNodeMemoryRepository.java
+│   │   ├── TestExecutionRepository.java
+│   │   └── TestExecutionDbRepository.java
 │   │
 │   ├── domain/                         # 도메인 모델
 │   │   ├── TestNode.java               # 발견된 테스트 노드
 │   │   ├── TestExecution.java          # 실행 이력
 │   │   ├── TestResult.java             # 결과 (트리 구조)
+│   │   ├── TestResultRecord.java       # 결과 레코드 (DB 매핑)
+│   │   ├── TestSummary.java            # 결과 요약
 │   │   └── TestStatus.java             # 상태 Enum
 │   │
 │   ├── dto/                            # 데이터 전송 객체
 │   │   ├── TreeNodeDto.java
+│   │   ├── ClassDetailDto.java
+│   │   ├── TestMethodDto.java
 │   │   ├── TestExecutionRequest.java
 │   │   └── TestExecutionResponse.java
+│   │
+│   ├── exception/                      # 예외 처리
+│   │   ├── GlobalExceptionHandler.java # 전역 예외 핸들러
+│   │   └── ErrorResponse.java          # 에러 응답 DTO
 │   │
 │   ├── runner/                         # 별도 JVM 테스트 실행기
 │   │   ├── TestRunner.java             # 별도 JVM 메인 클래스
@@ -75,10 +86,11 @@ autotest/
 │   └── util/junit/
 │       └── WebTestListener.java        # 웹앱용 TestExecutionListener
 │
-├── sql/                                # DDL 스크립트
+├── sql/                                # DDL 스크립트 (DB2)
 │   ├── c_test_node_catalog.ddl
 │   ├── c_test_execution.ddl
-│   └── c_test_result.ddl
+│   ├── c_test_result.ddl
+│   └── c_morning_monitor_manager.ddl   # 권한 관리 테이블
 │
 └── docs/                               # 상세 문서
     ├── ARCHITECTURE.md                 # 시스템 아키텍처
@@ -125,11 +137,16 @@ autotest/
                                   │
                                   ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              MySQL Database                                  │
+│                               DB2 Database                                   │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐          │
 │  │C_TEST_NODE_CATALOG│  │ C_TEST_EXECUTION │  │  C_TEST_RESULT   │          │
 │  │ (발견된 테스트)    │  │  (실행 이력)     │  │  (상세 결과)     │          │
 │  └──────────────────┘  └──────────────────┘  └──────────────────┘          │
+│                                                                              │
+│  ┌───────────────────────────────────┐                                      │
+│  │  C_MORNING_MONITOR_MANAGER        │                                      │
+│  │  (권한 관리)                       │                                      │
+│  └───────────────────────────────────┘                                      │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -175,13 +192,16 @@ autotest/
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | GET | `/api/tests/tree` | 테스트 트리 조회 |
-| POST | `/api/tests/refresh` | 카탈로그 새로고침 (컴파일 + 발견) |
+| POST | `/api/tests/refresh` | 카탈로그 새로고침 (컴파일 + 발견 + 트리 반환) |
 | GET | `/api/tests/class/{className}` | 클래스 상세 정보 |
 | POST | `/api/tests/run` | 테스트 실행 (비동기) |
 | GET | `/api/tests/method/code` | 메서드 소스 코드 |
-| GET | `/api/tests/executions` | 실행 이력 목록 |
+| GET | `/api/tests/server-time` | 서버 현재 시간 |
+| GET | `/api/tests/dashboard` | 대시보드 통계 (오늘 실행, 주간 트렌드, 최근 실패 등) |
+| GET | `/api/tests/check-auth` | 실행 권한 확인 |
+| GET | `/api/tests/executions` | 실행 이력 목록 (기본 20개) |
 | GET | `/api/tests/executions/{id}` | 특정 실행 조회 |
-| GET | `/api/tests/executions/{id}/results` | 실행 결과 조회 |
+| GET | `/api/tests/executions/{id}/results` | 실행 결과 조회 (요약 + 트리) |
 
 ---
 
@@ -199,9 +219,10 @@ testcode:
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/bng000a
-    username: root
-    password: root
+    url: jdbc:db2://localhost:50000/bng000a
+    username: db2inst1
+    password: password
+    driver-class-name: com.ibm.db2.jcc.DB2Driver
     hikari:
       maximum-pool-size: 100
       minimum-idle: 5

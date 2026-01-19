@@ -50,11 +50,14 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                               Data Layer                                     │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         MySQL Database                               │   │
+│  │                          DB2 Database                                │   │
 │  │                                                                      │   │
 │  │   ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐      │   │
 │  │   │C_TEST_NODE_CATALOG│ │C_TEST_EXECUTION│ │  C_TEST_RESULT  │      │   │
 │  │   └─────────────────┘ └─────────────────┘ └─────────────────┘      │   │
+│  │   ┌────────────────────────────┐                                    │   │
+│  │   │C_MORNING_MONITOR_MANAGER   │                                    │   │
+│  │   └────────────────────────────┘                                    │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -92,7 +95,7 @@ public class TestApiController {
 | 클래스 | 책임 | 의존성 |
 |--------|------|--------|
 | `TestCatalogServiceImpl` | 테스트 발견 및 카탈로그 관리 | ProcessExecutorService, TestNodeRepository |
-| `TestExecutionServiceImpl` | 테스트 실행 (비동기) | ProcessExecutorService, TestExecutionRepository |
+| `TestExecutionServiceImpl` | 테스트 실행 (비동기), 대시보드 통계 | ProcessExecutorService, TestExecutionRepository |
 | `ProcessExecutorService` | 별도 JVM 프로세스 실행 | - |
 | `TestTreeServiceImpl` | 트리 구조 변환 | TestNodeRepository |
 | `SourceCodeService` | 소스 코드 추출 | JavaParser |
@@ -102,7 +105,8 @@ public class TestApiController {
 | 클래스 | 테이블 | 주요 기능 |
 |--------|--------|----------|
 | `TestNodeDbRepository` | C_TEST_NODE_CATALOG | 테스트 노드 CRUD |
-| `TestExecutionDbRepository` | C_TEST_EXECUTION, C_TEST_RESULT | 실행 이력 및 결과 CRUD |
+| `TestNodeMemoryRepository` | - (메모리) | 테스트용 메모리 저장소 |
+| `TestExecutionDbRepository` | C_TEST_EXECUTION, C_TEST_RESULT, C_MORNING_MONITOR_MANAGER | 실행 이력, 결과, 권한 관리 CRUD |
 
 ---
 
@@ -273,7 +277,7 @@ Client                  Spring Boot App              Separate JVM              D
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 DTO 구조
+### 5.2 DTO 및 Summary 구조
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -297,10 +301,20 @@ Client                  Spring Boot App              Separate JVM              D
 │  │ methods[]           │   │   TestMethodDto     │                         │
 │  └─────────────────────┘   ├─────────────────────┤                         │
 │                            │ methodName          │                         │
-│                            │ displayName         │                         │
-│                            │ uniqueId            │                         │
-│                            │ isNestedClass       │                         │
-│                            │ children[]          │                         │
+│  ┌─────────────────────┐   │ displayName         │                         │
+│  │    TestSummary      │   │ uniqueId            │                         │
+│  ├─────────────────────┤   │ isNestedClass       │                         │
+│  │ total               │   │ children[]          │                         │
+│  │ success             │   └─────────────────────┘                         │
+│  │ failed              │                                                    │
+│  │ skipped             │   ┌─────────────────────┐                         │
+│  │ totalDurationMillis │   │   ErrorResponse     │                         │
+│  └─────────────────────┘   ├─────────────────────┤                         │
+│                            │ status              │                         │
+│                            │ error               │                         │
+│                            │ message             │                         │
+│                            │ details (Map)       │                         │
+│                            │ timestamp           │                         │
 │                            └─────────────────────┘                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -312,14 +326,14 @@ Client                  Spring Boot App              Separate JVM              D
 ### 6.1 ERD
 
 ```
-┌─────────────────────────┐
-│  C_TEST_NODE_CATALOG    │
-├─────────────────────────┤
-│ PK unique_id VARCHAR    │
-│    parent_unique_id     │
-│    displayname          │
-│    classname            │
-│    type                 │
+┌─────────────────────────┐       ┌─────────────────────────────┐
+│  C_TEST_NODE_CATALOG    │       │  C_MORNING_MONITOR_MANAGER  │
+├─────────────────────────┤       ├─────────────────────────────┤
+│ PK unique_id VARCHAR    │       │    EMPCD CHAR(7)            │
+│    parent_unique_id     │       │    EMPNM VARCHAR(20)        │
+│    displayname          │       │    EMPIP VARCHAR(45)        │
+│    classname            │       │    ACTIVE_YN CHAR(1)        │
+│    type                 │       └─────────────────────────────┘
 │    updatedat            │
 └─────────────────────────┘
 
@@ -348,6 +362,7 @@ Client                  Spring Boot App              Separate JVM              D
 | C_TEST_NODE_CATALOG | 발견된 테스트 노드 저장 | unique_id (JUnit UniqueId), type (CONTAINER/TEST) |
 | C_TEST_EXECUTION | 테스트 실행 이력 | execution_id (UUID), status (RUNNING/COMPLETED/FAILED) |
 | C_TEST_RESULT | 개별 테스트 결과 | test_id, parent_test_id (트리 구조), status, stdout |
+| C_MORNING_MONITOR_MANAGER | 테스트 실행 권한 관리 | EMPCD (사원코드), EMPNM (이름), EMPIP (IP), ACTIVE_YN (활성화 여부) |
 
 ---
 

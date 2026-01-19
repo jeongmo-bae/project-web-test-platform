@@ -17,11 +17,13 @@
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | GET | `/api/tests/tree` | 테스트 트리 조회 |
-| POST | `/api/tests/refresh` | 카탈로그 새로고침 |
+| POST | `/api/tests/refresh` | 카탈로그 새로고침 (트리 반환) |
 | GET | `/api/tests/class/{className}` | 클래스 상세 정보 |
 | POST | `/api/tests/run` | 테스트 실행 |
 | GET | `/api/tests/method/code` | 메서드 소스 코드 |
 | GET | `/api/tests/server-time` | 서버 현재 시간 |
+| GET | `/api/tests/dashboard` | 대시보드 통계 |
+| GET | `/api/tests/check-auth` | 실행 권한 확인 |
 | GET | `/api/tests/executions` | 실행 이력 목록 |
 | GET | `/api/tests/executions/{executionId}` | 특정 실행 조회 |
 | GET | `/api/tests/executions/{executionId}/results` | 실행 결과 조회 |
@@ -106,21 +108,39 @@ POST /api/tests/refresh
 
 ### Response
 
-```http
-HTTP/1.1 200 OK
+```json
+{
+  "status": "SUCCESS",
+  "message": "Test catalog refreshed",
+  "tree": {
+    "name": "testcode",
+    "type": "PACKAGE",
+    "children": [...]
+  }
+}
 ```
+
+### 필드 설명
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `status` | string | 결과 상태: `SUCCESS` |
+| `message` | string | 결과 메시지 |
+| `tree` | object | 새로고침된 테스트 트리 (TreeNodeDto 구조) |
 
 ### 동작
 
 1. 테스트 코드 프로젝트에서 `gradle compileJava` 실행
 2. 별도 JVM에서 테스트 발견 (`TestRunner discover`)
 3. 기존 카탈로그 삭제 후 새 결과 저장
+4. 갱신된 테스트 트리 반환
 
 ### 에러
 
 ```json
 {
   "status": 500,
+  "error": "Internal Server Error",
   "message": "Failed to refresh test catalog: Compilation failed",
   "timestamp": "2024-01-15T10:30:00"
 }
@@ -306,13 +326,164 @@ GET /api/tests/server-time
 
 ```json
 {
-  "date": "2024-01-15"
+  "today": "2024-01-15"
 }
 ```
 
 ---
 
-## 7. 실행 이력 목록
+## 7. 대시보드 통계
+
+오늘 실행 통계, 주간 트렌드, 최근 실패 목록, 최근 실행 이력 등 대시보드용 데이터를 조회합니다.
+
+### Request
+
+```http
+GET /api/tests/dashboard
+```
+
+### Response
+
+```json
+{
+  "todayStats": {
+    "totalExecutions": 15,
+    "totalTests": 120,
+    "successCount": 110,
+    "failedCount": 8,
+    "skippedCount": 2,
+    "successRate": 91.67
+  },
+  "weeklyTrend": [
+    {
+      "date": "2024-01-09",
+      "executions": 10,
+      "successCount": 95,
+      "failedCount": 5
+    },
+    {
+      "date": "2024-01-10",
+      "executions": 12,
+      "successCount": 108,
+      "failedCount": 4
+    }
+  ],
+  "recentFailures": [
+    {
+      "displayName": "testLoginFailure()",
+      "errorMessage": "expected: <failure> but was: <success>",
+      "startedAt": "2024-01-15T10:30:00",
+      "executionId": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ],
+  "recentExecutions": [
+    {
+      "executionId": "550e8400-e29b-41d4-a716-446655440000",
+      "startedAt": "2024-01-15T10:30:00",
+      "status": "COMPLETED",
+      "totalTests": 10,
+      "successCount": 9,
+      "failedCount": 1,
+      "skippedCount": 0,
+      "totalDurationMillis": 15234,
+      "requesterName": "홍길동",
+      "requesterIp": "192.168.1.100",
+      "classNames": "testauto.testcode.e2e.LoginTest"
+    }
+  ],
+  "totalTestClasses": 25
+}
+```
+
+### 필드 설명
+
+**todayStats:**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `totalExecutions` | number | 오늘 총 실행 횟수 |
+| `totalTests` | number | 오늘 총 테스트 수 |
+| `successCount` | number | 오늘 성공한 테스트 수 |
+| `failedCount` | number | 오늘 실패한 테스트 수 |
+| `skippedCount` | number | 오늘 건너뛴 테스트 수 |
+| `successRate` | number | 오늘 성공률 (%) |
+
+**weeklyTrend:**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `date` | string | 날짜 |
+| `executions` | number | 해당일 실행 횟수 |
+| `successCount` | number | 해당일 성공 테스트 수 |
+| `failedCount` | number | 해당일 실패 테스트 수 |
+
+**recentFailures:**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `displayName` | string | 실패한 테스트 이름 |
+| `errorMessage` | string | 에러 메시지 |
+| `startedAt` | string | 실행 시작 시간 |
+| `executionId` | string | 실행 ID |
+
+**recentExecutions:**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `executionId` | string | 실행 ID |
+| `startedAt` | string | 시작 시간 |
+| `status` | string | 상태 |
+| `totalTests` | number | 총 테스트 수 |
+| `successCount` | number | 성공 수 |
+| `failedCount` | number | 실패 수 |
+| `skippedCount` | number | 건너뛴 수 |
+| `totalDurationMillis` | number | 총 실행 시간 (밀리초) |
+| `requesterName` | string | 요청자 이름 |
+| `requesterIp` | string | 요청자 IP |
+| `classNames` | string | 실행한 클래스명들 |
+
+---
+
+## 8. 권한 확인
+
+요청자의 테스트 실행 권한을 확인합니다.
+
+### Request
+
+```http
+GET /api/tests/check-auth
+```
+
+### Response
+
+**권한이 있는 경우:**
+
+```json
+{
+  "authorized": true,
+  "message": "권한이 확인되었습니다."
+}
+```
+
+**권한이 없는 경우:**
+
+```json
+{
+  "authorized": false,
+  "message": "담당자가 아닙니다. 캠페인 팀으로 문의주세요."
+}
+```
+
+### 필드 설명
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `authorized` | boolean | 권한 보유 여부 |
+| `message` | string | 결과 메시지 |
+
+---
+
+## 9. 실행 이력 목록
 
 최근 테스트 실행 이력을 조회합니다.
 
@@ -320,11 +491,11 @@ GET /api/tests/server-time
 
 ```http
 GET /api/tests/executions
-GET /api/tests/executions?limit=20
+GET /api/tests/executions?limit=50
 ```
 
 **Query Parameters:**
-- `limit` (optional): 조회할 최대 개수 (기본값: 10)
+- `limit` (optional): 조회할 최대 개수 (기본값: 20)
 
 ### Response
 
@@ -377,7 +548,7 @@ GET /api/tests/executions?limit=20
 
 ---
 
-## 8. 특정 실행 조회
+## 10. 특정 실행 조회
 
 특정 실행의 기본 정보를 조회합니다.
 
@@ -420,7 +591,7 @@ GET /api/tests/executions/{executionId}
 
 ---
 
-## 9. 실행 결과 조회
+## 11. 실행 결과 조회
 
 특정 실행의 상세 결과를 트리 구조로 조회합니다.
 
@@ -535,17 +706,31 @@ GET /api/tests/executions/{executionId}/results
 ```json
 {
   "status": 400,
+  "error": "Bad Request",
   "message": "에러 메시지",
+  "details": {
+    "fieldName": "필드별 에러 메시지"
+  },
   "timestamp": "2024-01-15T10:30:00"
 }
 ```
+
+### 필드 설명
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `status` | number | HTTP 상태 코드 |
+| `error` | string | 에러 유형 |
+| `message` | string | 에러 메시지 |
+| `details` | object? | 필드별 에러 상세 (Validation 에러인 경우) |
+| `timestamp` | string | 에러 발생 시간 (ISO 8601) |
 
 ### HTTP 상태 코드
 
 | 코드 | 설명 |
 |------|------|
 | 200 | 성공 |
-| 400 | 잘못된 요청 (파라미터 오류 등) |
+| 400 | 잘못된 요청 (파라미터 오류, Validation 실패 등) |
 | 404 | 리소스를 찾을 수 없음 |
 | 500 | 서버 내부 오류 |
 
