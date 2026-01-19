@@ -27,17 +27,20 @@ public class TestCatalogServiceImpl implements TestCatalogService {
     @Override
     public void refreshTestCatalog() {
         try {
-            // 1. 테스트 코드 컴파일
+            // 1. 최신 코드 pull
+            processExecutorService.gitPull();
+
+            // 2. 테스트 코드 컴파일
             processExecutorService.compileTestCode();
 
-            // 2. 별도 JVM에서 테스트 발견
+            // 3. 별도 JVM에서 테스트 발견
             TestRunner.DiscoverResult result = processExecutorService.discoverTests(testcodeRootPackage);
 
             if (!result.success()) {
                 throw new RuntimeException("Test discovery failed: " + result.error());
             }
 
-            // 3. 결과를 TestNode로 변환하여 DB 저장
+            // 4. 결과를 TestNode로 변환하여 DB 저장
             repository.deleteAll();
             List<TestNode> testNodes = result.nodes().stream()
                     .map(dto -> TestNode.builder()

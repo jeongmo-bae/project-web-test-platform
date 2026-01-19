@@ -9,17 +9,23 @@ import org.springframework.stereotype.Service;
 import testauto.runner.TestRunner;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,6 +41,10 @@ public class ProcessExecutorService {
     // 애플리케이션 시작 시점의 JAVA_HOME을 캡처
     private String capturedJavaHome;
 
+    // Spring Boot JAR에서 추출한 클래스패스 경로
+    private Path extractedClassesPath;
+    private Path extractedLibPath;
+
     @PostConstruct
     public void init() {
         // 1순위: 환경변수 JAVA_HOME
@@ -46,6 +56,150 @@ public class ProcessExecutorService {
             log.info("JAVA_HOME 환경변수가 없어서 java.home 시스템 프로퍼티 사용: {}", capturedJavaHome);
         } else {
             log.info("캡처된 JAVA_HOME: {}", capturedJavaHome);
+        }
+
+        // Spring Boot JAR에서 BOOT-INF 추출
+        extractBootInfFromJar();
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        // 추출된 임시 디렉토리 정리
+        if (extractedClassesPath != null) {
+            try {
+                deleteDirectory(extractedClassesPath.getParent());
+                log.info("Cleaned up extracted BOOT-INF directory");
+            } catch (Exception e) {
+                log.warn("Failed to cleanup extracted directory", e);
+            }
+        }
+    }
+
+    private void extractBootInfFromJar() {
+        try {
+            String classpath = System.getProperty("java.class.path");
+            String sep = isWindows() ? ";" : ":";
+            String[] entries = classpath.split(java.util.regex.Pattern.quote(sep));
+
+            // Spring Boot JAR 찾기 (autotest*.jar)
+            Path springBootJar = null;
+            for (String entry : entries) {
+                if (entry.contains("autotest") && entry.endsWith(".jar") && !entry.contains("-plain.jar")) {
+                    springBootJar = Path.of(entry);
+                    break;
+                }
+            }
+
+            if (springBootJar == null || !Files.exists(springBootJar)) {
+                log.info("Spring Boot JAR not found in classpath, using direct classpath");
+                return;
+            }
+
+            // JAR 내부에 BOOT-INF가 있는지 확인
+            try (JarFile jarFile = new JarFile(springBootJar.toFile())) {
+                JarEntry bootInfEntry = jarFile.getJarEntry("BOOT-INF/classes/");
+                if (bootInfEntry == null) {
+                    log.info("No BOOT-INF in JAR, using direct classpath");
+                    return;
+                }
+            }
+
+            log.info("Found Spring Boot JAR: {}, extracting BOOT-INF...", springBootJar);
+
+            // 임시 디렉토리 생성
+            Path tempDir = Files.createTempDirectory("autotest-extracted-");
+            extractedClassesPath = tempDir.resolve("classes");
+            extractedLibPath = tempDir.resolve("lib");
+            Files.createDirectories(extractedClassesPath);
+            Files.createDirectories(extractedLibPath);
+
+            // JAR에서 BOOT-INF 추출
+            try (JarFile jarFile = new JarFile(springBootJar.toFile())) {
+                Enumeration<JarEntry> entries2 = jarFile.entries();
+                while (entries2.hasMoreElements()) {
+                    JarEntry entry = entries2.nextElement();
+                    String entryName = entry.getName();
+
+                    if (entryName.startsWith("BOOT-INF/classes/")) {
+                        String relativePath = entryName.substring("BOOT-INF/classes/".length());
+                        if (!relativePath.isEmpty()) {
+                            Path targetPath = extractedClassesPath.resolve(relativePath);
+                            if (entry.isDirectory()) {
+                                Files.createDirectories(targetPath);
+                            } else {
+                                Files.createDirectories(targetPath.getParent());
+                                try (InputStream is = jarFile.getInputStream(entry)) {
+                                    Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                                }
+                            }
+                        }
+                    } else if (entryName.startsWith("BOOT-INF/lib/") && entryName.endsWith(".jar")) {
+                        String jarName = entryName.substring("BOOT-INF/lib/".length());
+                        Path targetPath = extractedLibPath.resolve(jarName);
+                        try (InputStream is = jarFile.getInputStream(entry)) {
+                            Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    }
+                }
+            }
+
+            log.info("Extracted BOOT-INF/classes to: {}", extractedClassesPath);
+            log.info("Extracted BOOT-INF/lib to: {}", extractedLibPath);
+
+        } catch (Exception e) {
+            log.warn("Failed to extract BOOT-INF from JAR, will use direct classpath", e);
+        }
+    }
+
+    private void deleteDirectory(Path dir) throws Exception {
+        if (dir != null && Files.exists(dir)) {
+            Files.walk(dir)
+                    .sorted((a, b) -> -a.compareTo(b))
+                    .forEach(p -> {
+                        try {
+                            Files.delete(p);
+                        } catch (Exception e) {
+                            // ignore
+                        }
+                    });
+        }
+    }
+
+    /**
+     * 테스트 코드 프로젝트 git pull
+     */
+    public void gitPull() throws Exception {
+        log.info("Pulling latest code at: {}", testcodeProjectPath);
+
+        ProcessBuilder pb = new ProcessBuilder();
+        pb.directory(new File(testcodeProjectPath));
+        pb.command("git", "pull");
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
+
+        StringBuilder output = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+                log.debug("[git] {}", line);
+            }
+        }
+
+        boolean finished = process.waitFor(2, TimeUnit.MINUTES);
+        if (!finished) {
+            process.destroyForcibly();
+            throw new RuntimeException("Git pull timed out");
+        }
+
+        int exitCode = process.exitValue();
+        if (exitCode != 0) {
+            log.warn("Git pull returned non-zero exit code: {}, output: {}", exitCode, output);
+            // git pull 실패해도 계속 진행 (네트워크 문제 등)
+        } else {
+            log.info("Git pull completed: {}", output.toString().trim());
         }
     }
 
@@ -158,13 +312,28 @@ public class ProcessExecutorService {
         String sep = isWindows() ? ";" : ":";
 
         // 1. 현재 애플리케이션의 classpath (TestRunner 클래스 포함)
-        String currentClasspath = System.getProperty("java.class.path");
-        Path baseDir = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        for (String entry : currentClasspath.split(java.util.regex.Pattern.quote(sep))) {
-            if (entry == null || entry.isBlank()) continue;
-            Path p = Path.of(entry);
-            Path abs = p.isAbsolute() ? p : baseDir.resolve(p);
-            paths.add(abs.toAbsolutePath().normalize().toString());
+        if (extractedClassesPath != null && Files.exists(extractedClassesPath)) {
+            // Spring Boot JAR에서 추출한 경로 사용
+            paths.add(extractedClassesPath.toString());
+
+            // 추출한 lib JAR들도 추가
+            if (extractedLibPath != null && Files.exists(extractedLibPath)) {
+                Files.list(extractedLibPath)
+                        .filter(p -> p.toString().endsWith(".jar"))
+                        .forEach(p -> paths.add(p.toString()));
+            }
+            log.info("Using extracted BOOT-INF paths for classpath");
+        } else {
+            // 직접 실행 모드 (IDE 또는 gradle bootRun)
+            String currentClasspath = System.getProperty("java.class.path");
+            Path baseDir = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+            for (String entry : currentClasspath.split(java.util.regex.Pattern.quote(sep))) {
+                if (entry == null || entry.isBlank()) continue;
+                Path p = Path.of(entry);
+                Path abs = p.isAbsolute() ? p : baseDir.resolve(p);
+                paths.add(abs.toAbsolutePath().normalize().toString());
+            }
+            log.info("Using direct classpath (IDE/bootRun mode)");
         }
 
         // 2. 테스트 코드 프로젝트의 컴파일된 클래스
